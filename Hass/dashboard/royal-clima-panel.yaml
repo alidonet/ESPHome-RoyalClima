@@ -1,5 +1,5 @@
 # Отдельная карточка: добавить как ручную карточку в секцию дашборда.
-# Скопируйте royal-clima-panel.svg, royal-clima-panel-fan.svg и royal-clima-panel-fan-off.svg в /config/www/images/.
+# Скопируйте royal-clima-panel.svg, royal-clima-panel-en.svg, royal-clima-panel-fan.svg и royal-clima-panel-fan-off.svg в /config/www/images/.
 # Управление использует обёртки из royal_clima.yaml.
 # Скопируйте содержимое Hass/fonts/ в /config/www/fonts/.
 # Ресурсы дашборда: /local/fonts/royal-clima-lcd.css?v=1, тип CSS (таблица стилей).
@@ -7,567 +7,597 @@
 # Неизвестные значения: подпись скрывается, видны прочерки на SVG-фоне.
 # Фон подписи совпадает с экраном SVG и перекрывает прочерки при наличии данных.
 # Корпус без вложенного контура; карточка занимает 85% ширины. Нужен card-mod.
-type: picture-elements
-card_mod:
-  style: |
-    :host {
-      display: block;
-      width: 85% !important;
-      margin: 0 auto;
-    }
-    ha-card {
-      padding: 0;
-      border: 0.85px solid rgba(115, 137, 151, 0.35);
-      box-sizing: border-box;
-      border-radius: 13.6px;
-      box-shadow: 0 1.7px 5.1px rgba(65, 85, 100, 0.08);
-      overflow: hidden;
-    }
-image: /local/images/royal-clima-panel.svg
-elements:
-  - type: conditional
-    conditions:
-      - entity: sensor.ventilation_system_outdoor_air_temperature
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_outdoor_air_temperature
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_outdoor_air_temperature
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: center
-          left: 29.19048%
-          top: 23.01887%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-          word-spacing: -0.3em
-        tap_action:
-          action: more-info
-  - type: conditional
-    conditions:
-      - entity: sensor.ventilation_system_defrost_temperature
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_defrost_temperature
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_defrost_temperature
-        title: Выброс воздуха · FR
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: center
-          left: 70.80952%
-          top: 23.01887%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-          word-spacing: -0.3em
-        tap_action:
-          action: more-info
-  - type: conditional
-    conditions:
-      - entity: sensor.ventilation_system_return_air_temperature
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_return_air_temperature
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_return_air_temperature
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: center
-          left: 29.19048%
-          top: 40.37736%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-          word-spacing: -0.3em
-  - type: conditional
-    conditions:
-      - entity: sensor.ventilation_system_supply_air_temperature
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_supply_air_temperature
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_supply_air_temperature
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: center
-          left: 70.80952%
-          top: 40.37736%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-          word-spacing: -0.3em
-  - type: conditional
-    conditions:
-      - entity: select.royal_clima_supply_speed
-        state_not: "unknown"
-      - entity: select.royal_clima_supply_speed
-        state_not: "unavailable"
-      - entity: sensor.ventilation_system_supply_fan_speed
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_supply_fan_speed
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_supply_fan_speed
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: left
-          width: 2ch
-          transform: translate(0, -50%)
-          left: 25%
-          top: 57.73585%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-        tap_action:
-          action: more-info
+# Автоязык: русский для ru, английский для остальных языков интерфейса HA.
+# Нужен Config Template Card из HACS; ресурс /hacsfiles/config-template-card/config-template-card.js (JavaScript module).
+# После смены языка интерфейса перезагрузите страницу дашборда.
+# Перевод касается панели и подсказок; имена сущностей и опции package общие для всех пользователей.
+type: custom:config-template-card
+variables:
+  - "(this.hass.locale?.language || this.hass.language || 'en').toLowerCase().startsWith('ru')"
+entities:
+  - sensor.ventilation_system_outdoor_air_temperature
+  - sensor.ventilation_system_defrost_temperature
+  - sensor.ventilation_system_return_air_temperature
+  - sensor.ventilation_system_supply_air_temperature
+  - sensor.ventilation_system_supply_fan_speed
+  - select.royal_clima_supply_speed
+  - sensor.ventilation_system_exhaust_fan_speed
+  - select.royal_clima_exhaust_speed
+  - switch.royal_clima_power
+  - binary_sensor.royal_clima_esp32_connection
+  - binary_sensor.ventilation_system_vent_system_online
+  - binary_sensor.ventilation_system_ventilation_power
+  - binary_sensor.ventilation_system_bypass_open
+  - binary_sensor.ventilation_system_defrost_active
+  - binary_sensor.ventilation_system_external_boost_active
+  - binary_sensor.ventilation_system_co2_boost_active
+  - binary_sensor.royal_clima_filter_replacement_recommended
+  - binary_sensor.ventilation_system_ventilation_error
+  - binary_sensor.ventilation_system_fire_alarm
+card:
+  type: vertical-stack
+  cards:
+    - type: picture-elements
+      card_mod:
+        style: |
+          :host {
+            display: block;
+            width: 85% !important;
+            margin: 0 auto;
+          }
+          ha-card {
+            padding: 0;
+            border: 0.85px solid rgba(115, 137, 151, 0.35);
+            box-sizing: border-box;
+            border-radius: 13.6px;
+            box-shadow: 0 1.7px 5.1px rgba(65, 85, 100, 0.08);
+            overflow: hidden;
+          }
+      image: "${vars[0] ? '/local/images/royal-clima-panel.svg' : '/local/images/royal-clima-panel-en.svg'}"
+      elements:
+        - type: conditional
+          conditions:
+            - entity: sensor.ventilation_system_outdoor_air_temperature
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_outdoor_air_temperature
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_outdoor_air_temperature
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: center
+                left: 29.19048%
+                top: 23.01887%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+                word-spacing: -0.3em
+              tap_action:
+                action: more-info
+        - type: conditional
+          conditions:
+            - entity: sensor.ventilation_system_defrost_temperature
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_defrost_temperature
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_defrost_temperature
+              title: "${vars[0] ? \"Выброс воздуха · FR\" : \"Exhaust air · FR\"}"
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: center
+                left: 70.80952%
+                top: 23.01887%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+                word-spacing: -0.3em
+              tap_action:
+                action: more-info
+        - type: conditional
+          conditions:
+            - entity: sensor.ventilation_system_return_air_temperature
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_return_air_temperature
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_return_air_temperature
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: center
+                left: 29.19048%
+                top: 40.37736%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+                word-spacing: -0.3em
+        - type: conditional
+          conditions:
+            - entity: sensor.ventilation_system_supply_air_temperature
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_supply_air_temperature
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_supply_air_temperature
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: center
+                left: 70.80952%
+                top: 40.37736%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+                word-spacing: -0.3em
+        - type: conditional
+          conditions:
+            - entity: select.royal_clima_supply_speed
+              state_not: "unknown"
+            - entity: select.royal_clima_supply_speed
+              state_not: "unavailable"
+            - entity: sensor.ventilation_system_supply_fan_speed
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_supply_fan_speed
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_supply_fan_speed
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: left
+                width: 2ch
+                transform: translate(0, -50%)
+                left: 25%
+                top: 57.73585%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+              tap_action:
+                action: more-info
+                entity: select.royal_clima_supply_speed
+        - type: conditional
+          conditions:
+            - entity: select.royal_clima_exhaust_speed
+              state_not: "unknown"
+            - entity: select.royal_clima_exhaust_speed
+              state_not: "unavailable"
+            - entity: sensor.ventilation_system_exhaust_fan_speed
+              state_not: "unknown"
+            - entity: sensor.ventilation_system_exhaust_fan_speed
+              state_not: "unavailable"
+          elements:
+            - type: state-label
+              entity: sensor.ventilation_system_exhaust_fan_speed
+              style:
+                background-color: "#eef0e9"
+                padding: 0 5.916px
+                min-width: 2ch
+                text-align: left
+                width: 2ch
+                transform: translate(0, -50%)
+                left: 66.61905%
+                top: 57.73585%
+                color: "#30372a"
+                font-family: "RoyalClimaLCD, monospace"
+                font-weight: 400
+                font-style: normal
+                line-height: 1.25
+                font-size: 25.5px
+              tap_action:
+                action: more-info
+                entity: select.royal_clima_exhaust_speed
+        - type: state-icon
+          entity: switch.royal_clima_power
+          icon: mdi:power
+          title: "${vars[0] ? \"Включение рекуператора\" : \"Toggle ventilation power\"}"
+          style:
+            left: 19.99048%
+            top: 83.58491%
+            "--mdc-icon-size": 25px
+            color: "#505850"
+          tap_action:
+            action: toggle
+        - type: state-icon
           entity: select.royal_clima_supply_speed
-  - type: conditional
-    conditions:
-      - entity: select.royal_clima_exhaust_speed
-        state_not: "unknown"
-      - entity: select.royal_clima_exhaust_speed
-        state_not: "unavailable"
-      - entity: sensor.ventilation_system_exhaust_fan_speed
-        state_not: "unknown"
-      - entity: sensor.ventilation_system_exhaust_fan_speed
-        state_not: "unavailable"
-    elements:
-      - type: state-label
-        entity: sensor.ventilation_system_exhaust_fan_speed
-        style:
-          background-color: "#eef0e9"
-          padding: 0 5.916px
-          min-width: 2ch
-          text-align: left
-          width: 2ch
-          transform: translate(0, -50%)
-          left: 66.61905%
-          top: 57.73585%
-          color: "#30372a"
-          font-family: "RoyalClimaLCD, monospace"
-          font-weight: 400
-          font-style: normal
-          line-height: 1.25
-          font-size: 25.5px
-        tap_action:
-          action: more-info
+          icon: mdi:fan-chevron-down
+          title: "${vars[0] ? \"Выбрать скорость притока\" : \"Select supply speed\"}"
+          style:
+            left: 50%
+            top: 83.58491%
+            "--mdc-icon-size": 25px
+            color: "#505850"
+          tap_action:
+            action: more-info
+        - type: state-icon
           entity: select.royal_clima_exhaust_speed
-  - type: state-icon
-    entity: switch.royal_clima_power
-    icon: mdi:power
-    title: Включение рекуператора
-    style:
-      left: 19.99048%
-      top: 83.58491%
-      "--mdc-icon-size": 25px
-      color: "#505850"
-    tap_action:
-      action: toggle
-  - type: state-icon
-    entity: select.royal_clima_supply_speed
-    icon: mdi:fan-chevron-down
-    title: Выбрать скорость притока
-    style:
-      left: 50%
-      top: 83.58491%
-      "--mdc-icon-size": 25px
-      color: "#505850"
-    tap_action:
-      action: more-info
-  - type: state-icon
-    entity: select.royal_clima_exhaust_speed
-    icon: mdi:fan-chevron-up
-    title: Выбрать скорость вытяжки
-    style:
-      left: 80.00952%
-      top: 83.58491%
-      "--mdc-icon-size": 25px
-      color: "#505850"
-    tap_action:
-      action: more-info
+          icon: mdi:fan-chevron-up
+          title: "${vars[0] ? \"Выбрать скорость вытяжки\" : \"Select exhaust speed\"}"
+          style:
+            left: 80.00952%
+            top: 83.58491%
+            "--mdc-icon-size": 25px
+            color: "#505850"
+          tap_action:
+            action: more-info
 
-  # Индикаторы вентиляторов: анимация означает включение и ненулевую ступень, не RPM.
-  - type: conditional
-    conditions:
-      - condition: or
-        conditions:
-          - condition: state
-            entity: binary_sensor.royal_clima_esp32_connection
-            state_not: "on"
-          - condition: state
-            entity: binary_sensor.ventilation_system_vent_system_online
-            state_not: "on"
-          - condition: state
-            entity: binary_sensor.ventilation_system_ventilation_power
-            state_not: "on"
-          - condition: state
-            entity: select.royal_clima_supply_speed
-            state: ["Стоп", "unknown", "unavailable"]
-    elements:
-      - type: image
-        entity: select.royal_clima_supply_speed
-        image: /local/images/royal-clima-panel-fan-off.svg
-        title: Скорость притока
-        style:
-          left: 21.96359%
-          top: 57.07547%
-          opacity: 0.3
-          width: 23.664px
-        tap_action:
-          action: more-info
-  - type: conditional
-    conditions:
-      - entity: binary_sensor.royal_clima_esp32_connection
-        state: "on"
-      - entity: binary_sensor.ventilation_system_vent_system_online
-        state: "on"
-      - entity: binary_sensor.ventilation_system_ventilation_power
-        state: "on"
-      - entity: select.royal_clima_supply_speed
-        state_not: "Стоп"
-      - entity: select.royal_clima_supply_speed
-        state_not: "unknown"
-      - entity: select.royal_clima_supply_speed
-        state_not: "unavailable"
-    elements:
-      - type: image
-        entity: select.royal_clima_supply_speed
-        image: /local/images/royal-clima-panel-fan.svg
-        title: Вентилятор притока · включён, ступень больше нуля
-        style:
-          left: 21.96359%
-          top: 57.07547%
-          width: 23.664px
-        tap_action:
-          action: more-info
-  - type: conditional
-    conditions:
-      - condition: or
-        conditions:
-          - condition: state
-            entity: binary_sensor.royal_clima_esp32_connection
-            state_not: "on"
-          - condition: state
-            entity: binary_sensor.ventilation_system_vent_system_online
-            state_not: "on"
-          - condition: state
-            entity: binary_sensor.ventilation_system_ventilation_power
-            state_not: "on"
-          - condition: state
-            entity: select.royal_clima_exhaust_speed
-            state: ["Стоп", "unknown", "unavailable"]
-    elements:
-      - type: image
-        entity: select.royal_clima_exhaust_speed
-        image: /local/images/royal-clima-panel-fan-off.svg
-        title: Скорость вытяжки
-        style:
-          left: 63.58264%
-          top: 57.07547%
-          opacity: 0.3
-          width: 23.664px
-        tap_action:
-          action: more-info
-  - type: conditional
-    conditions:
-      - entity: binary_sensor.royal_clima_esp32_connection
-        state: "on"
-      - entity: binary_sensor.ventilation_system_vent_system_online
-        state: "on"
-      - entity: binary_sensor.ventilation_system_ventilation_power
-        state: "on"
-      - entity: select.royal_clima_exhaust_speed
-        state_not: "Стоп"
-      - entity: select.royal_clima_exhaust_speed
-        state_not: "unknown"
-      - entity: select.royal_clima_exhaust_speed
-        state_not: "unavailable"
-    elements:
-      - type: image
-        entity: select.royal_clima_exhaust_speed
-        image: /local/images/royal-clima-panel-fan.svg
-        title: Вентилятор вытяжки · включён, ступень больше нуля
-        style:
-          left: 63.58264%
-          top: 57.07547%
-          width: 23.664px
-        tap_action:
-          action: more-info
-  # Подсветка означает активный признак. Текущее состояние — по нажатию.
-  - type: conditional
-    conditions:
-      - entity: binary_sensor.royal_clima_esp32_connection
-        state: "on"
-      - entity: binary_sensor.ventilation_system_vent_system_online
-        state: "on"
-    elements:
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_bypass_open
-        icon: mdi:valve
-        title: "Байпас · подсветка: открыт"
-        state_color: true
-        style:
-          left: 24.04762%
-          top: 68.49057%
-          "--mdc-icon-size": 14.5px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_defrost_active
-        icon: mdi:snowflake-melt
-        title: "Разморозка"
-        state_color: true
-        style:
-          left: 32.69841%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_external_boost_active
-        icon: mdi:fan-plus
-        title: "Внешнее форсирование"
-        state_color: true
-        style:
-          left: 41.34921%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_co2_boost_active
-        icon: mdi:molecule-co2
-        title: "Форсирование по CO₂ · не измерение ppm"
-        state_color: true
-        style:
-          left: 50%
-          top: 68.49057%
-          "--mdc-icon-size": 19.5px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.royal_clima_filter_replacement_recommended
-        icon: mdi:air-filter
-        title: "Фильтр · рекомендуется замена по расчётному интервалу"
-        state_color: true
-        style:
-          left: 58.65079%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_ventilation_error
-        icon: mdi:alert-circle-outline
-        title: "Ошибка установки"
-        state_color: true
-        style:
-          left: 67.30159%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: state-icon
-        entity: binary_sensor.ventilation_system_fire_alarm
-        icon: mdi:fire-alert
-        title: "Пожарный вход установки"
-        state_color: true
-        style:
-          left: 75.95238%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
+        # Индикаторы вентиляторов: анимация означает включение и ненулевую ступень, не RPM.
+        - type: conditional
+          conditions:
+            - condition: or
+              conditions:
+                - condition: state
+                  entity: binary_sensor.royal_clima_esp32_connection
+                  state_not: "on"
+                - condition: state
+                  entity: binary_sensor.ventilation_system_vent_system_online
+                  state_not: "on"
+                - condition: state
+                  entity: binary_sensor.ventilation_system_ventilation_power
+                  state_not: "on"
+                - condition: state
+                  entity: select.royal_clima_supply_speed
+                  state: ["0", "unknown", "unavailable"]
+          elements:
+            - type: image
+              entity: select.royal_clima_supply_speed
+              image: /local/images/royal-clima-panel-fan-off.svg
+              title: "${vars[0] ? \"Скорость притока\" : \"Supply speed\"}"
+              style:
+                left: 21.96359%
+                top: 57.07547%
+                opacity: 0.3
+                width: 23.664px
+              tap_action:
+                action: more-info
+        - type: conditional
+          conditions:
+            - entity: binary_sensor.royal_clima_esp32_connection
+              state: "on"
+            - entity: binary_sensor.ventilation_system_vent_system_online
+              state: "on"
+            - entity: binary_sensor.ventilation_system_ventilation_power
+              state: "on"
+            - entity: select.royal_clima_supply_speed
+              state_not: "0"
+            - entity: select.royal_clima_supply_speed
+              state_not: "unknown"
+            - entity: select.royal_clima_supply_speed
+              state_not: "unavailable"
+          elements:
+            - type: image
+              entity: select.royal_clima_supply_speed
+              image: /local/images/royal-clima-panel-fan.svg
+              title: "${vars[0] ? \"Вентилятор притока · включён, ступень больше нуля\" : \"Supply fan · powered on, speed step above zero\"}"
+              style:
+                left: 21.96359%
+                top: 57.07547%
+                width: 23.664px
+              tap_action:
+                action: more-info
+        - type: conditional
+          conditions:
+            - condition: or
+              conditions:
+                - condition: state
+                  entity: binary_sensor.royal_clima_esp32_connection
+                  state_not: "on"
+                - condition: state
+                  entity: binary_sensor.ventilation_system_vent_system_online
+                  state_not: "on"
+                - condition: state
+                  entity: binary_sensor.ventilation_system_ventilation_power
+                  state_not: "on"
+                - condition: state
+                  entity: select.royal_clima_exhaust_speed
+                  state: ["0", "unknown", "unavailable"]
+          elements:
+            - type: image
+              entity: select.royal_clima_exhaust_speed
+              image: /local/images/royal-clima-panel-fan-off.svg
+              title: "${vars[0] ? \"Скорость вытяжки\" : \"Exhaust speed\"}"
+              style:
+                left: 63.58264%
+                top: 57.07547%
+                opacity: 0.3
+                width: 23.664px
+              tap_action:
+                action: more-info
+        - type: conditional
+          conditions:
+            - entity: binary_sensor.royal_clima_esp32_connection
+              state: "on"
+            - entity: binary_sensor.ventilation_system_vent_system_online
+              state: "on"
+            - entity: binary_sensor.ventilation_system_ventilation_power
+              state: "on"
+            - entity: select.royal_clima_exhaust_speed
+              state_not: "0"
+            - entity: select.royal_clima_exhaust_speed
+              state_not: "unknown"
+            - entity: select.royal_clima_exhaust_speed
+              state_not: "unavailable"
+          elements:
+            - type: image
+              entity: select.royal_clima_exhaust_speed
+              image: /local/images/royal-clima-panel-fan.svg
+              title: "${vars[0] ? \"Вентилятор вытяжки · включён, ступень больше нуля\" : \"Exhaust fan · powered on, speed step above zero\"}"
+              style:
+                left: 63.58264%
+                top: 57.07547%
+                width: 23.664px
+              tap_action:
+                action: more-info
+        # Подсветка означает активный признак. Текущее состояние — по нажатию.
+        - type: conditional
+          conditions:
+            - entity: binary_sensor.royal_clima_esp32_connection
+              state: "on"
+            - entity: binary_sensor.ventilation_system_vent_system_online
+              state: "on"
+          elements:
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_bypass_open
+              icon: mdi:valve
+              title: "${vars[0] ? \"Байпас · подсветка: открыт\" : \"Bypass · highlighted when open\"}"
+              state_color: true
+              style:
+                left: 24.04762%
+                top: 68.49057%
+                "--mdc-icon-size": 14.5px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_defrost_active
+              icon: mdi:snowflake-melt
+              title: "${vars[0] ? \"Разморозка\" : \"Defrost\"}"
+              state_color: true
+              style:
+                left: 32.69841%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_external_boost_active
+              icon: mdi:fan-plus
+              title: "${vars[0] ? \"Внешнее форсирование\" : \"External boost\"}"
+              state_color: true
+              style:
+                left: 41.34921%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_co2_boost_active
+              icon: mdi:molecule-co2
+              title: "${vars[0] ? \"Форсирование по CO₂ · не измерение ppm\" : \"CO₂ boost · not a ppm reading\"}"
+              state_color: true
+              style:
+                left: 50%
+                top: 68.49057%
+                "--mdc-icon-size": 19.5px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.royal_clima_filter_replacement_recommended
+              icon: mdi:air-filter
+              title: "${vars[0] ? \"Фильтр · рекомендуется замена по расчётному интервалу\" : \"Filter · replacement recommended by estimated interval\"}"
+              state_color: true
+              style:
+                left: 58.65079%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_ventilation_error
+              icon: mdi:alert-circle-outline
+              title: "${vars[0] ? \"Ошибка установки\" : \"Ventilation error\"}"
+              state_color: true
+              style:
+                left: 67.30159%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: state-icon
+              entity: binary_sensor.ventilation_system_fire_alarm
+              icon: mdi:fire-alert
+              title: "${vars[0] ? \"Пожарный вход установки\" : \"Ventilation fire alarm input\"}"
+              state_color: true
+              style:
+                left: 75.95238%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
 
-  # При потере связи оставляем бледные значки без подсветки последних состояний.
-  - type: conditional
-    conditions:
-      - condition: or
-        conditions:
-          - condition: state
-            entity: binary_sensor.royal_clima_esp32_connection
-            state_not: "on"
-          - condition: state
-            entity: binary_sensor.ventilation_system_vent_system_online
-            state_not: "on"
-    elements:
-      - type: icon
-        entity: binary_sensor.ventilation_system_bypass_open
-        icon: mdi:valve
-        title: "Байпас · подсветка: открыт"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 24.04762%
-          top: 68.49057%
-          "--mdc-icon-size": 14.5px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.ventilation_system_defrost_active
-        icon: mdi:snowflake-melt
-        title: "Разморозка"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 32.69841%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.ventilation_system_external_boost_active
-        icon: mdi:fan-plus
-        title: "Внешнее форсирование"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 41.34921%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.ventilation_system_co2_boost_active
-        icon: mdi:molecule-co2
-        title: "Форсирование по CO₂ · не измерение ppm"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 50%
-          top: 68.49057%
-          "--mdc-icon-size": 19.5px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.royal_clima_filter_replacement_recommended
-        icon: mdi:air-filter
-        title: "Фильтр · рекомендуется замена по расчётному интервалу"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 58.65079%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.ventilation_system_ventilation_error
-        icon: mdi:alert-circle-outline
-        title: "Ошибка установки"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 67.30159%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
-      - type: icon
-        entity: binary_sensor.ventilation_system_fire_alarm
-        icon: mdi:fire-alert
-        title: "Пожарный вход установки"
-        style:
-          color: "#899085"
-          opacity: 0.45
-          left: 75.95238%
-          top: 68.49057%
-          "--mdc-icon-size": 16.269px
-        tap_action:
-          action: more-info
+        # При потере связи оставляем бледные значки без подсветки последних состояний.
+        - type: conditional
+          conditions:
+            - condition: or
+              conditions:
+                - condition: state
+                  entity: binary_sensor.royal_clima_esp32_connection
+                  state_not: "on"
+                - condition: state
+                  entity: binary_sensor.ventilation_system_vent_system_online
+                  state_not: "on"
+          elements:
+            - type: icon
+              entity: binary_sensor.ventilation_system_bypass_open
+              icon: mdi:valve
+              title: "${vars[0] ? \"Байпас · подсветка: открыт\" : \"Bypass · highlighted when open\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 24.04762%
+                top: 68.49057%
+                "--mdc-icon-size": 14.5px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.ventilation_system_defrost_active
+              icon: mdi:snowflake-melt
+              title: "${vars[0] ? \"Разморозка\" : \"Defrost\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 32.69841%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.ventilation_system_external_boost_active
+              icon: mdi:fan-plus
+              title: "${vars[0] ? \"Внешнее форсирование\" : \"External boost\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 41.34921%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.ventilation_system_co2_boost_active
+              icon: mdi:molecule-co2
+              title: "${vars[0] ? \"Форсирование по CO₂ · не измерение ppm\" : \"CO₂ boost · not a ppm reading\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 50%
+                top: 68.49057%
+                "--mdc-icon-size": 19.5px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.royal_clima_filter_replacement_recommended
+              icon: mdi:air-filter
+              title: "${vars[0] ? \"Фильтр · рекомендуется замена по расчётному интервалу\" : \"Filter · replacement recommended by estimated interval\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 58.65079%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.ventilation_system_ventilation_error
+              icon: mdi:alert-circle-outline
+              title: "${vars[0] ? \"Ошибка установки\" : \"Ventilation error\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 67.30159%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
+            - type: icon
+              entity: binary_sensor.ventilation_system_fire_alarm
+              icon: mdi:fire-alert
+              title: "${vars[0] ? \"Пожарный вход установки\" : \"Ventilation fire alarm input\"}"
+              style:
+                color: "#899085"
+                opacity: 0.45
+                left: 75.95238%
+                top: 68.49057%
+                "--mdc-icon-size": 16.269px
+              tap_action:
+                action: more-info
 
-  # Индикаторы связи на корпусе: приглушённый контур и мягкая подсветка при связи.
-  - type: icon
-    entity: binary_sensor.royal_clima_esp32_connection
-    icon: mdi:chip
-    title: ESP32 → Home Assistant
-    style:
-      left: 81.7619%
-      top: 6.15094%
-      "--mdc-icon-size": 14.79px
-      color: "#92999f"
-      opacity: 0.22
-    tap_action:
-      action: more-info
-  - type: conditional
-    conditions:
-      - entity: binary_sensor.royal_clima_esp32_connection
-        state: "on"
-    elements:
-      - type: icon
-        entity: binary_sensor.royal_clima_esp32_connection
-        icon: mdi:chip
-        title: ESP32 → Home Assistant
-        style:
-          left: 81.7619%
-          top: 6.15094%
-          "--mdc-icon-size": 14.79px
-          color: "#3e89bb"
-          opacity: 0.88
-          filter: drop-shadow(0 0 2.55px rgba(80,155,205,0.4))
-        tap_action:
-          action: more-info
-  - type: icon
-    entity: binary_sensor.ventilation_system_vent_system_online
-    icon: mdi:hvac
-    title: ESP32 → ПВУ · Modbus
-    style:
-      left: 88.33333%
-      top: 6.15094%
-      "--mdc-icon-size": 14.79px
-      color: "#92999f"
-      opacity: 0.22
-    tap_action:
-      action: more-info
-  - type: conditional
-    conditions:
-      - entity: binary_sensor.royal_clima_esp32_connection
-        state: "on"
-      - entity: binary_sensor.ventilation_system_vent_system_online
-        state: "on"
-    elements:
-      - type: icon
-        entity: binary_sensor.ventilation_system_vent_system_online
-        icon: mdi:hvac
-        title: ESP32 → ПВУ · Modbus
-        style:
-          left: 88.33333%
-          top: 6.15094%
-          "--mdc-icon-size": 14.79px
-          color: "#3e89bb"
-          opacity: 0.88
-          filter: drop-shadow(0 0 2.55px rgba(80,155,205,0.4))
-        tap_action:
-          action: more-info
+        # Индикаторы связи на корпусе: приглушённый контур и мягкая подсветка при связи.
+        - type: icon
+          entity: binary_sensor.royal_clima_esp32_connection
+          icon: mdi:chip
+          title: "${vars[0] ? \"ESP32 → Home Assistant\" : \"ESP32 → Home Assistant\"}"
+          style:
+            left: 81.7619%
+            top: 6.15094%
+            "--mdc-icon-size": 14.79px
+            color: "#92999f"
+            opacity: 0.22
+          tap_action:
+            action: more-info
+        - type: conditional
+          conditions:
+            - entity: binary_sensor.royal_clima_esp32_connection
+              state: "on"
+          elements:
+            - type: icon
+              entity: binary_sensor.royal_clima_esp32_connection
+              icon: mdi:chip
+              title: "${vars[0] ? \"ESP32 → Home Assistant\" : \"ESP32 → Home Assistant\"}"
+              style:
+                left: 81.7619%
+                top: 6.15094%
+                "--mdc-icon-size": 14.79px
+                color: "#3e89bb"
+                opacity: 0.88
+                filter: drop-shadow(0 0 2.55px rgba(80,155,205,0.4))
+              tap_action:
+                action: more-info
+        - type: icon
+          entity: binary_sensor.ventilation_system_vent_system_online
+          icon: mdi:hvac
+          title: "${vars[0] ? \"ESP32 → ПВУ · Modbus\" : \"ESP32 → ventilation · Modbus\"}"
+          style:
+            left: 88.33333%
+            top: 6.15094%
+            "--mdc-icon-size": 14.79px
+            color: "#92999f"
+            opacity: 0.22
+          tap_action:
+            action: more-info
+        - type: conditional
+          conditions:
+            - entity: binary_sensor.royal_clima_esp32_connection
+              state: "on"
+            - entity: binary_sensor.ventilation_system_vent_system_online
+              state: "on"
+          elements:
+            - type: icon
+              entity: binary_sensor.ventilation_system_vent_system_online
+              icon: mdi:hvac
+              title: "${vars[0] ? \"ESP32 → ПВУ · Modbus\" : \"ESP32 → ventilation · Modbus\"}"
+              style:
+                left: 88.33333%
+                top: 6.15094%
+                "--mdc-icon-size": 14.79px
+                color: "#3e89bb"
+                opacity: 0.88
+                filter: drop-shadow(0 0 2.55px rgba(80,155,205,0.4))
+              tap_action:
+                action: more-info

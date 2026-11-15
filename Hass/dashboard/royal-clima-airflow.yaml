@@ -288,7 +288,7 @@ elements:
           - entity: binary_sensor.ventilation_system_ventilation_power
             state: "on"
           - entity: select.royal_clima_supply_speed
-            state_not: "Стоп"
+            state_not: "0"
           - entity: select.royal_clima_supply_speed
             state_not: "unknown"
           - entity: select.royal_clima_supply_speed
@@ -315,7 +315,7 @@ elements:
           - entity: binary_sensor.ventilation_system_ventilation_power
             state: "on"
           - entity: select.royal_clima_exhaust_speed
-            state_not: "Стоп"
+            state_not: "0"
           - entity: select.royal_clima_exhaust_speed
             state_not: "unknown"
           - entity: select.royal_clima_exhaust_speed

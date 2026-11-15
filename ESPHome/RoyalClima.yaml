@@ -685,31 +685,32 @@ binary_sensor:
 
 text_sensor:
   - platform: template
-    # Русское описание работы установки, открытия байпаса, разморозки и пожарного сигнала.
+    # Описание работы установки на выбранном языке ru/en.
     name: "Ventilation status"
     icon: mdi:air-filter
     device_id: device_vent
     update_interval: 3s
     lambda: |-
+      const bool english = id(message_language).state == "en";
       const float raw = id(status_raw).state;
-      if (isnan(raw)) return {"Нет актуальных данных"};
+      if (isnan(raw)) return {(english ? "No current data" : "Нет актуальных данных")};
       const uint16_t flags = static_cast<uint16_t>(raw);
       std::string result;
       if (!isnan(id(power_raw).state)) {
-        result = id(power_raw).state == 0 ? "Выключен" : "Работает";
+        result = id(power_raw).state == 0 ? (english ? "Off" : "Выключен") : (english ? "Running" : "Работает");
       } else {
-        result = "Питание: нет актуальных данных";
+        result = (english ? "Power: no current data" : "Питание: нет актуальных данных");
       }
-      if (flags & 0x01) result += "; Пожарный сигнал";
-      if (flags & 0x02) result += "; Байпас открыт";
-      if (flags & 0x08) result += "; Разморозка";
+      if (flags & 0x01) result += (english ? "; Fire alarm" : "; Пожарный сигнал");
+      if (flags & 0x02) result += (english ? "; Bypass open" : "; Байпас открыт");
+      if (flags & 0x08) result += (english ? "; Defrosting" : "; Разморозка");
       if (flags & 0xFFF0) {
-        result += "; Неизвестные флаги: " + std::to_string(flags & 0xFFF0);
+        result += (english ? "; Unknown flags: " : "; Неизвестные флаги: ") + std::to_string(flags & 0xFFF0);
       }
       return result;
 
   - platform: template
-    # Русская расшифровка битов ошибок регистра 20 с исходным числовым кодом.
+    # Расшифровка битов ошибок регистра 20 на выбранном языке с числовым кодом.
     name: "Error description"
     icon: mdi:alert-octagon-outline
     device_id: device_vent
@@ -717,20 +718,21 @@ text_sensor:
     update_interval: 3s
     # Bit map from docs/Modbus protocol - DC (Primo).pdf.
     lambda: |-
+      const bool english = id(message_language).state == "en";
       const float raw = id(error_raw).state;
-      if (isnan(raw)) return {"Нет актуальных данных"};
+      if (isnan(raw)) return {(english ? "No current data" : "Нет актуальных данных")};
       const uint16_t code = static_cast<uint16_t>(raw);
-      if (code == 0) return {"Ошибок нет"};
-      std::string result = "Ошибка: ";
+      if (code == 0) return {(english ? "No errors" : "Ошибок нет")};
+      std::string result = (english ? "Error: " : "Ошибка: ");
       const char *messages[] = {
-        "Датчик наружной температуры OA",
-        "Память EEPROM",
-        "Датчик комнатной температуры RA",
-        "Датчик вытяжной температуры EA",
-        "Нет данных",
-        "Датчик приточной температуры SA",
-        "Приточный вентилятор",
-        "Вытяжной вентилятор"
+        (english ? "Outdoor air temperature sensor OA" : "Датчик наружной температуры OA"),
+        (english ? "EEPROM memory" : "Память EEPROM"),
+        (english ? "Return air temperature sensor RA" : "Датчик комнатной температуры RA"),
+        (english ? "Exhaust air temperature sensor EA" : "Датчик вытяжной температуры EA"),
+        (english ? "No data" : "Нет данных"),
+        (english ? "Supply air temperature sensor SA" : "Датчик приточной температуры SA"),
+        (english ? "Supply fan" : "Приточный вентилятор"),
+        (english ? "Exhaust fan" : "Вытяжной вентилятор")
       };
       bool first = true;
       for (int bit = 0; bit < 8; bit++) {
@@ -742,9 +744,9 @@ text_sensor:
       }
       if (code & 0xFF10) {
         if (!first) result += "; ";
-        result += "Неизвестные биты";
+        result += (english ? "Unknown bits" : "Неизвестные биты");
       }
-      result += " (код " + std::to_string(code) + ")";
+      result += (english ? " (code " : " (код ") + std::to_string(code) + ")";
       return result;
 button:
   - platform: restart
@@ -768,6 +770,18 @@ switch:
     restore_mode: DISABLED
 
 select:
+  - platform: template
+    id: message_language
+    # Язык текстовых статусов и ошибок; сохраняется после перезагрузки, обновление в течение 3 с.
+    name: "Message language"
+    icon: mdi:translate
+    entity_category: config
+    options:
+      - "ru"
+      - "en"
+    initial_option: "en"
+    optimistic: true
+    restore_value: true
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: supply_speed_control
@@ -780,7 +794,7 @@ select:
     use_write_multiple: false
     optimistic: false
     optionsmap:
-      "Стоп": 0
+      "0": 0
       "1": 2
       "2": 3
       "3": 5
@@ -803,7 +817,7 @@ select:
     use_write_multiple: false
     optimistic: false
     optionsmap:
-      "Стоп": 0
+      "0": 0
       "1": 2
       "2": 3
       "3": 5

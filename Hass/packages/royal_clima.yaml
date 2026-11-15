@@ -43,8 +43,8 @@ royal_clima:
                and has_value('select.ventilation_system_supply_speed_control') }}
           state: >-
             {% set speed = states('sensor.ventilation_system_supply_fan_speed') | int(-1) %}
-            {{ 'Стоп' if speed == 0 else (speed | string) }}
-          options: "{{ ['Стоп', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }}"
+            {{ speed | string }}
+          options: "{{ ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }}"
           select_option:
             - condition: state
               entity_id: binary_sensor.ventilation_system_vent_system_online
@@ -68,8 +68,8 @@ royal_clima:
                and has_value('select.ventilation_system_exhaust_speed_control') }}
           state: >-
             {% set speed = states('sensor.ventilation_system_exhaust_fan_speed') | int(-1) %}
-            {{ 'Стоп' if speed == 0 else (speed | string) }}
-          options: "{{ ['Стоп', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }}"
+            {{ speed | string }}
+          options: "{{ ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'] }}"
           select_option:
             - condition: state
               entity_id: binary_sensor.ventilation_system_vent_system_online

@@ -8,7 +8,7 @@
 
 ESPHome firmware connecting an ESP32 to a **Royal Clima SOFFIO Primo** heat recovery ventilation unit over **Modbus RTU / RS-485**. The series includes **RCS-250-P, RCS-350-P, RCS-500-P and RCS-650-P**. Tested on **RCS-650-P**; other models and controller revisions need verification.
 
-Potential compatibility with **Holtop** units using the same protocol and register map: **XHBQ-D1.5DMTHA, XHBQ-D2.5DMTHA, XHBQ-D3.5DMTHA, XHBQ-D5DMTHA, XHBQ-D6.5DMTHA, XHBQ-D8DMTHA, XHBQ-D10DMTHA, XHBQ-D13DMTHA, XHBQ-D15DMTHA, XHBQ-D20DMTHA and XHBQ-D26DMTHA**. These models have not been tested.
+Potential compatibility with **Holtop XHBQ** units using the same protocol and register map: **XHBQ-D1.5DMTHA, XHBQ-D2.5DMTHA, XHBQ-D3.5DMTHA, XHBQ-D5DMTHA, XHBQ-D6.5DMTHA, XHBQ-D8DMTHA, XHBQ-D10DMTHA, XHBQ-D13DMTHA, XHBQ-D15DMTHA, XHBQ-D20DMTHA and XHBQ-D26DMTHA**. These models have not been tested.
 
 Use the local web interface independently, connect to **Home Assistant** through the ESPHome native API, or configure MQTT. Standalone operation requires the API timeout setting below.
 
@@ -78,6 +78,12 @@ For [MQTT](https://esphome.io/components/mqtt/), enable `mqtt` and configure bro
 
 API encryption, OTA password and web authentication are not configured in the supplied YAML; configure them for your network.
 
+## Language support
+
+Minimal Russian and English support is available. `Message language` selects firmware status/error text (`ru` or `en`, default `en`). This device-wide setting persists across reboots and applies within 3 seconds.
+
+The control panel follows the Home Assistant interface language: Russian for `ru`, English for other languages. Reload the page after changing the interface language. The airflow diagram has a separate [English YAML](Hass/dashboard/royal-clima-airflow-en.yaml). Firmware messages and card labels use independent language settings; entity names and package settings remain shared. The examples are not fully localized. Fan steps use numbers 0–10, with 0 meaning stopped.
+
 ## Modbus behavior
 
 | Setting | Default |
@@ -128,9 +134,9 @@ Names below match the YAML. Unit entities belong to **Ventilation System**; ESP3
 | Ventilation error | Nonzero error mask |
 | External boost active; CO2 boost active | Boost request flags |
 
-**Text sensors:** `Ventilation status` and `Error description` provide Russian status/error text, including the original error code. Errors cover OA/RA/EA/SA sensors, EEPROM and both fans; unknown bits are also reported.
+**Text sensors:** `Ventilation status` and `Error description` provide Russian or English status/error text, including the original error code. Select `ru` / `en` using `Message language` in device settings (default: `en`); the choice survives reboot and takes effect within 3 seconds. Errors cover OA/RA/EA/SA sensors, EEPROM and both fans; unknown bits are also reported.
 
-**Controls:** `Ventilation control` switches unit power; `Supply speed control` and `Exhaust speed control` select `Стоп` (stop) or steps 1–10. `Humidity setpoint control` * and `Heater temperature setpoint control` * write the corresponding setpoints. The filter interval is read-only. Measured CO₂/humidity and bypass/defrost settings are not exposed.
+**Controls:** `Message language` selects `ru` / `en` for firmware messages. `Ventilation control` switches unit power; `Supply speed control` and `Exhaust speed control` select steps 0–10 (0 means the fan is stopped). `Humidity setpoint control` * and `Heater temperature setpoint control` * write the corresponding setpoints. The filter interval is read-only. Measured CO₂/humidity and bypass/defrost settings are not exposed.
 
 `ESP32 Reboot` restarts **only the ESP32**, not the ventilation controller.
 
@@ -164,11 +170,11 @@ These calculations use `sensor.ventilation_system_fan_runtime` and `sensor.venti
 
 | YAML | Contents | Additional resources |
 |---|---|---|
-| [royal-clima-panel.yaml](Hass/dashboard/royal-clima-panel.yaml) | Control panel with temperatures, fan steps and status indicators | [card-mod](https://github.com/thomasloven/lovelace-card-mod) |
-| [royal-clima-airflow.yaml](Hass/dashboard/royal-clima-airflow.yaml) | Airflow diagram with temperatures, fan steps and power control | [Mushroom](https://github.com/piitaya/lovelace-mushroom) |
+| [royal-clima-panel.yaml](Hass/dashboard/royal-clima-panel.yaml) | Control panel with temperatures, fan steps and status indicators | [card-mod](https://github.com/thomasloven/lovelace-card-mod), [Config Template Card](https://github.com/iantrich/config-template-card) |
+| [royal-clima-airflow.yaml](Hass/dashboard/royal-clima-airflow.yaml) | Airflow diagram with temperatures, fan steps and power control; [English version](Hass/dashboard/royal-clima-airflow-en.yaml) | [Mushroom](https://github.com/piitaya/lovelace-mushroom) |
 | [royal-clima-vent-tab.yaml](Hass/dashboard/royal-clima-vent-tab.yaml) | Complete `sections` view with control, history and diagnostics; `path: vent` | [Mushroom](https://github.com/piitaya/lovelace-mushroom), [stack-in-card](https://github.com/custom-cards/stack-in-card), [fold-entity-row](https://github.com/thomasloven/lovelace-fold-entity-row) |
 
-1. Install the HA package and the additional resources required by your example.
+1. Install the HA package and the additional resources required by your example. The control panel needs Config Template Card with `/hacsfiles/config-template-card/config-template-card.js` registered as a **JavaScript module** resource.
 2. Copy **all SVG files** from [Hass/images](Hass/images/) to **`/config/www/images/`**, keeping their names. The root `images/` directory contains README illustrations and is not needed by the cards.
 3. Card URLs already use `/local/images/filename.svg`, which maps to `/config/www/images/filename.svg`. If you create `www` for the first time, restart HA. See [HA static file hosting](https://www.home-assistant.io/integrations/http/#hosting-files).
 4. For the control panel, copy [Hass/fonts](Hass/fonts/) contents to `/config/www/fonts/`. Add `/local/fonts/royal-clima-lcd.css?v=1` as a dashboard resource of type **CSS / stylesheet**. Without it, the panel uses a monospace fallback.
