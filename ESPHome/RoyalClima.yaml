@@ -1,4 +1,4 @@
-# ESPHome project for Royal Clima RCS-650-P
+# ESPHome project for Royal Clima ERV, tested with RCS-650-P model.
 # Created by Alido, 2026
 # https://github.com/alidonet/RoyalClima
 
@@ -9,9 +9,11 @@ substitutions:
   en_pin: GPIO18
   baud_rate: "9600"  # SW4-4: ON = 9600, OFF = 4800.
   modbus_address: "1"  # Controller parameter 08.
-  refresh_interval: 10s
+  refresh_interval: 15s
+  slow_refresh_interval: 60s
   response_timeout: 1500ms
   stale_timeout: 60s  # Keep the last reading for one minute without updates.
+  slow_stale_timeout: 180s  # Allow missed polls of the secondary registers.
 
 globals:
   - id: last_reply_ms
@@ -23,17 +25,14 @@ globals:
   - id: offline_count
     type: uint32_t
     initial_value: '0'
-  - id: global_vent_online
-    type: bool
-    initial_value: "false"
   
 esphome:
   name: ${name}
   friendly_name: Royal Clima
-  comment: "Modbus monitoring and control for Royal Clima RCS-650-P"
+  comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.4.261114
+    version: 0.5.261115
   devices:
     - id: device_vent
       name: "Ventilation System"
@@ -82,7 +81,11 @@ ota:
   - platform: esphome
 
 logger:
-  level: DEBUG
+  level: WARN
+  # Summarize missing replies below instead of logging every retry/online transition.
+  logs:
+    modbus: ERROR
+    modbus_controller: ERROR
 
 web_server:
   local: true
@@ -109,7 +112,7 @@ modbus:
   id: royalclima_modbus
   uart_id: royalclima_uart
   send_wait_time: ${response_timeout}
-  turnaround_time: 100ms
+  turnaround_time: 600ms
 
 modbus_controller:
   - id: royalclima_controller
@@ -118,30 +121,43 @@ modbus_controller:
     update_interval: ${refresh_interval}
     max_cmd_retries: 1
     offline_skip_updates: 0
-    on_online: 
-      then:
-        - globals.set: 
-            id: global_vent_online
-            value: "true"        
-        - logger.log:
-            format: "Vent system connected"
-            level: info
     on_offline: 
       then:
-        - lambda: id(offline_count) += 1;
-        - globals.set: 
-            id: global_vent_online
-            value: "false"
-        - logger.log:
-            format: "Vent system NOT connected"
-            level: info
+        - script.execute: report_modbus_failure
+
+  # Same physical device and bus; only secondary reads use the slower schedule.
+  - id: royalclima_slow_controller
+    modbus_id: royalclima_modbus
+    address: ${modbus_address}
+    update_interval: ${slow_refresh_interval}
+    max_cmd_retries: 1
+    offline_skip_updates: 0
+    on_offline:
+      then:
+        - script.execute: report_modbus_failure
+
+script:
+  - id: report_modbus_failure
+    then:
+      # A failed command must not invalidate a still-fresh main block.
+      - lambda: |-
+          id(offline_count) += 1;
+          static bool logged = false;
+          static uint32_t last_warning_ms = 0;
+          const uint32_t now = millis();
+          if (!logged || uint32_t(now - last_warning_ms) >= 60000) {
+            ESP_LOGW("main", "Modbus replies missing; offline events since boot: %lu; retaining data until stale timeout",
+                     static_cast<unsigned long>(id(offline_count)));
+            last_warning_ms = now;
+            logged = true;
+          }
 
 #time:
 #  - platform: sntp
 
 # Holding-register reads use FC03; user controls write registers 9-11 with FC06. No startup writes.
-# Registers 9-20 form one contiguous read; 25 and 27 are separate reads.
-# timeout marks stale measurements unknown if valid replies stop arriving.
+# Registers 9-20 form one contiguous read; 25, 27 and 769 are separate reads.
+# Secondary reads expire after slow_stale_timeout; main-block reads after stale_timeout.
 sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -163,19 +179,12 @@ sensor:
             condition:
               lambda: 'return !isnan(x);'
             then:
-              - globals.set:
-                  id: global_vent_online
-                  value: "true"
               - lambda: |-
                   id(last_reply_ms) = millis();
                   id(has_reply) = true;
               - output.turn_on: led_output
               - delay: 150ms
               - output.turn_off: led_output
-            else:
-              - globals.set:
-                  id: global_vent_online
-                  value: "false"
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -332,7 +341,7 @@ sensor:
       return (uint32_t(millis()) - id(last_reply_ms)) / 1000.0f;
 
   - platform: template
-    # Число переходов Modbus-контроллера в offline с последней перезагрузки ESP32.
+    # Число переходов обеих групп опроса в offline с последней перезагрузки ESP32.
     name: "Offline events"
     icon: mdi:counter
     device_id: device_vent
@@ -415,7 +424,7 @@ sensor:
     filters:
       - timeout: ${stale_timeout}
   - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
+    modbus_controller_id: royalclima_slow_controller
     id: filter_interval_code
     # Регистр 25 (R): код интервала напоминания о фильтре, 0/1/2/3 — 45/60/90/180 дней. Отключён по умолчанию.
     name: "Filter interval code"
@@ -427,9 +436,9 @@ sensor:
     device_id: device_vent
     entity_category: diagnostic
     filters:
-      - timeout: ${stale_timeout}
+      - timeout: ${slow_stale_timeout}
   - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
+    modbus_controller_id: royalclima_slow_controller
     id: heater_setpoint
     # Регистр 27 (RW): заданная температура включения/выключения нагревателя, 10–25 °C.
     name: "Heater temperature setpoint"
@@ -441,7 +450,7 @@ sensor:
     device_id: device_vent
     entity_category: diagnostic
     filters:
-      - timeout: ${stale_timeout}
+      - timeout: ${slow_stale_timeout}
   - platform: template
     # Настроенный интервал напоминания о фильтре в днях; не оставшееся время до обслуживания.
     name: "Filter reminder interval"
@@ -458,7 +467,7 @@ sensor:
       return days[static_cast<int>(raw)];
 
   - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
+    modbus_controller_id: royalclima_slow_controller
     id: fan_runtime
     # Регистр 769 (R): наработка вентилятора, единица регистра — 0,1 часа.
     name: "Fan runtime"
@@ -471,7 +480,7 @@ sensor:
     device_id: device_vent
     filters:
       - multiply: 0.1
-      - timeout: ${stale_timeout}
+      - timeout: ${slow_stale_timeout}
 
 number:
   - platform: modbus_controller
@@ -490,7 +499,7 @@ number:
     step: 1
     use_write_multiple: false
   - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
+    modbus_controller_id: royalclima_slow_controller
     # Регистр 27 (RW): уставка нагревателя 10–25 °C; назначение выхода проверить на установке.
     name: "Heater temperature setpoint control"
     device_id: device_vent
@@ -512,7 +521,8 @@ binary_sensor:
     entity_category: diagnostic
 
   - platform: template
-    # Наличие связи с рекуператором по Modbus; оперативный статус обмена.
+    # Основной блок 9–20 получен и не протух (stale_timeout); короткие сбои не гасят панель HA.
+    # Не гарантирует свежесть отдельно читаемых 25, 27 и 769 или доставку команды управления.
     name: "Vent system Online"
     device_id: device_vent
     device_class: connectivity
@@ -521,7 +531,7 @@ binary_sensor:
       const uint32_t now = millis();
       if (uint32_t(now - last_check) < 3000) return {};
       last_check = now;
-      return (id(global_vent_online));
+      return id(has_reply) && !isnan(id(power_raw).state);
     entity_category: "diagnostic"   
 
   - platform: template
@@ -675,7 +685,7 @@ binary_sensor:
 
 text_sensor:
   - platform: template
-    # Русское описание работы установки, положения байпаса, разморозки и пожарного сигнала.
+    # Русское описание работы установки, открытия байпаса, разморозки и пожарного сигнала.
     name: "Ventilation status"
     icon: mdi:air-filter
     device_id: device_vent
@@ -692,7 +702,6 @@ text_sensor:
       }
       if (flags & 0x01) result += "; Пожарный сигнал";
       if (flags & 0x02) result += "; Байпас открыт";
-      if (flags & 0x04) result += "; Байпас закрыт";
       if (flags & 0x08) result += "; Разморозка";
       if (flags & 0xFFF0) {
         result += "; Неизвестные флаги: " + std::to_string(flags & 0xFFF0);
