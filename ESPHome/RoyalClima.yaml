@@ -685,13 +685,20 @@ binary_sensor:
 
 text_sensor:
   - platform: template
+    # Версия проекта в установленной прошивке; используется HA для проверки обновлений из Git.
+    name: "Project version"
+    icon: mdi:tag-outline
+    entity_category: diagnostic
+    update_interval: 60s
+    lambda: return {ESPHOME_PROJECT_VERSION};
+  - platform: template
     # Описание работы установки на выбранном языке ru/en.
     name: "Ventilation status"
     icon: mdi:air-filter
     device_id: device_vent
     update_interval: 3s
     lambda: |-
-      const bool english = id(message_language).state == "en";
+      const bool english = id(message_language).current_option() == "en";
       const float raw = id(status_raw).state;
       if (isnan(raw)) return {(english ? "No current data" : "Нет актуальных данных")};
       const uint16_t flags = static_cast<uint16_t>(raw);
@@ -718,7 +725,7 @@ text_sensor:
     update_interval: 3s
     # Bit map from docs/Modbus protocol - DC (Primo).pdf.
     lambda: |-
-      const bool english = id(message_language).state == "en";
+      const bool english = id(message_language).current_option() == "en";
       const float raw = id(error_raw).state;
       if (isnan(raw)) return {(english ? "No current data" : "Нет актуальных данных")};
       const uint16_t code = static_cast<uint16_t>(raw);

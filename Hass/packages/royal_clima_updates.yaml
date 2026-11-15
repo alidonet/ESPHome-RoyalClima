@@ -1,0 +1,34 @@
+# Необязательный пакет: скопировать в /config/packages/royal_clima_updates.yaml.
+# После проверки конфигурации HA перезапустить: добавляется интеграция REST.
+# Проверяется версия исходников main, а не свежесть файлов bin/*.bin; сборка и OTA вручную.
+# Нужен sensor.royal_clima_project_version из новой ESPHome-прошивки; сверить ID в реестре HA.
+# При другой ветке изменить URL. Та же версия при новых коммитах не считается обновлением.
+royal_clima_updates:
+  rest:
+    - resource: https://raw.githubusercontent.com/alidonet/RoyalClima/main/ESPHome/RoyalClima.yaml
+      scan_interval: 21600  # Проверка раз в 6 часов; вручную — homeassistant.update_entity.
+      timeout: 15
+      sensor:
+        - name: "Royal Clima latest project version"
+          unique_id: royal_clima_latest_project_version
+          icon: mdi:tag-outline
+          value_template: >-
+            {% set versions = value | regex_findall('(?m)^    version: ([0-9]+[.][0-9]+[.][0-9]{6})[ ]*\r?$') %}
+            {{ versions[0] if versions | count == 1 else 'unknown' }}
+
+  template:
+    - binary_sensor:
+        - name: "Royal Clima update available"
+          unique_id: royal_clima_update_available
+          default_entity_id: binary_sensor.royal_clima_update_available
+          device_class: update
+          availability: >-
+            {{ has_value('sensor.royal_clima_project_version')
+               and has_value('sensor.royal_clima_latest_project_version') }}
+          state: >-
+            {{ version(states('sensor.royal_clima_latest_project_version')) >
+               version(states('sensor.royal_clima_project_version')) }}
+          attributes:
+            installed_version: "{{ states('sensor.royal_clima_project_version') }}"
+            latest_version: "{{ states('sensor.royal_clima_latest_project_version') }}"
+            source_url: https://github.com/alidonet/RoyalClima/commits/main/ESPHome/RoyalClima.yaml
