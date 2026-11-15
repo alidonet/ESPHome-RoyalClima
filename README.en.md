@@ -86,13 +86,6 @@ For [MQTT](https://esphome.io/components/mqtt/), enable `mqtt` and configure bro
 
 API encryption, OTA password and web authentication are not configured in the supplied YAML; configure them for your network.
 
-## Git versions and manual OTA
-
-Use the [Git package example](ESPHome/examples/royalclima-git.yaml) as your local `royalclima.yaml` instead of copying the full firmware. Keep the same four Wi-Fi secrets in local `secrets.yaml`, and preserve your local API/OTA and pin settings. `refresh: 1h` controls Git cache refresh during validation/build; it does not install anything. The example tracks `main`; use a tag or commit SHA in `ref` to pin a version.
-
-The firmware exposes diagnostic `Project version` (`sensor.royal_clima_project_version`). Copy the optional [HA update-check package](Hass/packages/royal_clima_updates.yaml) to `/config/packages/`, validate and restart HA. Verify the entity IDs in your registry. It adds `sensor.royal_clima_latest_project_version` and `binary_sensor.royal_clima_update_available` (update device class). Git is checked once a day; call `homeassistant.update_entity` on the latest-version sensor to check immediately. The indicator is unavailable when either version is unavailable. A persistent HA notification is created once per new version, with no reminders or phone push. `input_text.royal_clima_last_notified_version` restores the last notified version across HA restarts, so dismissing a notification does not cause it to reappear for the same version.
-
-The check compares installed `esphome.project.version` with the YAML on `main`, so commits without a version increase are not detected. It does not certify the freshness of `bin/*.bin`. Build and install manually through ESPHome OTA. Publish source changes to Git first: local changes are not visible to remote packages or HA. No downloadable-firmware manifest is used; prebuilt binaries may contain different build settings.
 ## Language support
 
 Minimal Russian and English support is available. `Message language` selects firmware status/error text (`ru` or `en`, default `en`). This device-wide setting persists across reboots and applies within 3 seconds.
@@ -148,6 +141,8 @@ Names below match the YAML. Unit entities belong to **Ventilation System**; ESP3
 | Defrost active; Fire alarm | Defrost / unit fire input flags |
 | Ventilation error | Nonzero error mask |
 | External boost active; CO2 boost active | Boost request flags |
+
+**Project version:** `sensor.royal_clima_project_version` reports the installed firmware project version.
 
 **Text sensors:** `Ventilation status` and `Error description` provide Russian or English status/error text, including the original error code. Select `ru` / `en` using `Message language` in device settings (default: `en`); the choice survives reboot and takes effect within 3 seconds. Errors cover OA/RA/EA/SA sensors, EEPROM and both fans; unknown bits are also reported.
 

@@ -32,7 +32,7 @@ esphome:
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.5.261115
+    version: 0.5.261116
   devices:
     - id: device_vent
       name: "Ventilation System"
@@ -685,7 +685,7 @@ binary_sensor:
 
 text_sensor:
   - platform: template
-    # Версия проекта в установленной прошивке; используется HA для проверки обновлений из Git.
+    # Версия проекта в установленной прошивке.
     name: "Project version"
     icon: mdi:tag-outline
     entity_category: diagnostic

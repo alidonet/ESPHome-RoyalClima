@@ -104,5 +104,10 @@ royal_clima:
           default_entity_id: binary_sensor.royal_clima_filter_replacement_recommended
           device_class: problem
           icon: mdi:air-filter
-          availability: "{{ has_value('sensor.royal_clima_filter_usage') }}"
-          state: "{{ states('sensor.royal_clima_filter_usage') | float(0) >= 100 }}"
+          availability: >-
+            {{ has_value('sensor.ventilation_system_fan_runtime')
+               and has_value('sensor.ventilation_system_filter_reminder_interval')
+               and states('sensor.ventilation_system_filter_reminder_interval') | float(0) > 0 }}
+          state: >-
+            {{ states('sensor.ventilation_system_fan_runtime') | float(0) >=
+               (states('sensor.ventilation_system_filter_reminder_interval') | float(0)) * 24 }}
