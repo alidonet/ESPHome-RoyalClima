@@ -6,7 +6,7 @@
 royal_clima_updates:
   rest:
     - resource: https://raw.githubusercontent.com/alidonet/RoyalClima/main/ESPHome/RoyalClima.yaml
-      scan_interval: 21600  # Проверка раз в 6 часов; вручную — homeassistant.update_entity.
+      scan_interval: 86400  # Проверка раз в сутки; вручную — homeassistant.update_entity.
       timeout: 15
       sensor:
         - name: "Royal Clima latest project version"
@@ -32,3 +32,54 @@ royal_clima_updates:
             installed_version: "{{ states('sensor.royal_clima_project_version') }}"
             latest_version: "{{ states('sensor.royal_clima_latest_project_version') }}"
             source_url: https://github.com/alidonet/RoyalClima/commits/main/ESPHome/RoyalClima.yaml
+  input_text:
+    # Без initial: HA восстанавливает последнее значение после перезапуска.
+    royal_clima_last_notified_version:
+      name: Royal Clima last notified version
+      max: 64
+      icon: mdi:tag-check-outline
+
+  automation:
+    - id: royal_clima_notify_new_version
+      alias: "Royal Clima: новая версия прошивки"
+      mode: single
+      triggers:
+        - trigger: state
+          entity_id: binary_sensor.royal_clima_update_available
+          to: "on"
+        # Следующая версия может появиться, пока предыдущая ещё не установлена.
+        - trigger: state
+          entity_id: sensor.royal_clima_latest_project_version
+          to: null
+        - trigger: homeassistant
+          event: start
+      conditions:
+        - condition: state
+          entity_id: binary_sensor.royal_clima_update_available
+          state: "on"
+        - condition: template
+          value_template: >-
+            {{ has_value('sensor.royal_clima_latest_project_version')
+               and has_value('sensor.royal_clima_project_version')
+               and version(states('sensor.royal_clima_latest_project_version')) >
+                   version(states('sensor.royal_clima_project_version'))
+               and states('input_text.royal_clima_last_notified_version') not in ['unknown', 'unavailable']
+               and states('sensor.royal_clima_latest_project_version') !=
+                   states('input_text.royal_clima_last_notified_version') }}
+      actions:
+        - variables:
+            latest: "{{ states('sensor.royal_clima_latest_project_version') }}"
+        - action: persistent_notification.create
+          data:
+            notification_id: royal_clima_new_version
+            title: "Royal Clima: доступна новая версия"
+            message: >-
+              Доступна версия {{ latest }}.
+              Установлена {{ states('sensor.royal_clima_project_version') }}.
+              [Изменения](https://github.com/alidonet/RoyalClima/commits/main/ESPHome/RoyalClima.yaml).
+              Сборка и OTA — вручную через ESPHome.
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.royal_clima_last_notified_version
+          data:
+            value: "{{ latest }}"

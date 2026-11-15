@@ -1,94 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="420" height="530" viewBox="20 15 420 530">
-  <defs>
-    <path id="lcd-dash" d="M-7 0 -5.4-1.7H5.4L7 0 5.4 1.7H-5.4Z"/>
-    <g id="lcd-no-data"><use href="#lcd-dash" x="-9"/><use href="#lcd-dash" x="9"/></g>
-    <linearGradient id="body" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop stop-color="#f5f7f8"/>
-      <stop offset="0.5" stop-color="#eaf0f3"/>
-      <stop offset="1" stop-color="#dce5ea"/>
-    </linearGradient>
-    <linearGradient id="screen" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#dce4d3"/>
-      <stop offset="0.18" stop-color="#eef0e9"/>
-      <stop offset="0.85" stop-color="#eef0e9"/>
-      <stop offset="1" stop-color="#dce5d4"/>
-    </linearGradient>
-    <linearGradient id="screen-top-shadow" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#354331" stop-opacity="0.2"/>
-      <stop offset="1" stop-color="#354331" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="screen-rim" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#c5cec1"/>
-      <stop offset="1" stop-color="#fafcf7"/>
-    </linearGradient>
-    <linearGradient id="screen-side-shadow" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop stop-color="#354331" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#354331" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="button-well" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#d4dfe4"/>
-      <stop offset="1" stop-color="#eaf0f3"/>
-    </linearGradient>
-    <linearGradient id="button" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#fcfdfe"/>
-      <stop offset="0.45" stop-color="#f1f5f7"/>
-      <stop offset="1" stop-color="#e2ebef"/>
-    </linearGradient>
-    <linearGradient id="button-seam" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop stop-color="#a4b1b9" stop-opacity="0.65"/>
-      <stop offset="1" stop-color="#7e909b" stop-opacity="0.75"/>
-    </linearGradient>
-    <filter id="button-shadow" x="-10%" y="-15%" width="120%" height="140%">
-      <feDropShadow dx="0" dy="1" stdDeviation="0.7" flood-color="#61707b" flood-opacity="0.14"/>
-    </filter>
-    <filter id="button-well-inset" x="-10%" y="-15%" width="120%" height="130%">
-      <feComponentTransfer in="SourceAlpha" result="inverse-alpha"><feFuncA type="table" tableValues="1 0"/></feComponentTransfer>
-      <feGaussianBlur in="inverse-alpha" stdDeviation="1.2" result="blur"/>
-      <feOffset in="blur" dy="1.2" result="offset"/>
-      <feComposite in="offset" in2="SourceAlpha" operator="in" result="inner-mask"/>
-      <feFlood flood-color="#596b76" flood-opacity="0.24" result="shadow-color"/>
-      <feComposite in="shadow-color" in2="inner-mask" operator="in" result="inner-shadow"/>
-      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="inner-shadow"/></feMerge>
-    </filter>
-    <clipPath id="screen-clip"><rect x="52" y="75" width="356" height="330" rx="4"/></clipPath>
-  </defs>
-  <rect x="20" y="15" width="420" height="530" fill="url(#body)"/>
-  <rect x="49" y="72" width="362" height="336" rx="7" fill="url(#screen-rim)" stroke="#cbd2c8" stroke-width="0.6"/>
-  <rect x="52" y="75" width="356" height="330" rx="4" fill="url(#screen)" stroke="#b7c0b2" stroke-width="0.7"/>
-  <g clip-path="url(#screen-clip)">
-    <rect x="52" y="75" width="356" height="12" fill="url(#screen-top-shadow)"/>
-    <rect x="52" y="75" width="6" height="330" fill="url(#screen-side-shadow)"/>
-    <path d="M54 81H406V96Q270 100 54 124Z" fill="#ffffff" opacity="0.32"/>
-    <path d="M58 404H403Q407 404 407 400V82" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1"/>
-  </g>
-  <g fill="#42483b" font-family="sans-serif" font-size="13" text-anchor="middle">
-    <text x="142.6" y="103">УЛИЧНЫЙ ВОЗДУХ · OA</text>
-    <text x="317.4" y="103">ВЫБРОС ВОЗДУХА · FR</text>
-    <text x="142.6" y="195">ВОЗВРАТ · RA</text>
-    <text x="317.4" y="195">ПРИТОК · SA</text>
-    <text x="142.6" y="287">СКОРОСТЬ ПРИТОКА</text>
-    <text x="317.4" y="287">СКОРОСТЬ ВЫТЯЖКИ</text>
-  </g>
-  <path d="M52 167H408 M52 259H408 M52 351H408 M230 75V351" fill="none" stroke="#b5baae" stroke-width="0.7"/>
-  <!-- Средние сегменты LCD: видны без данных и не зависят от загрузки шрифта. -->
-  <g fill="#515550">
-    <use href="#lcd-no-data" x="142.6" y="134"/><use href="#lcd-no-data" x="317.4" y="134"/>
-    <use href="#lcd-no-data" x="142.6" y="226"/><use href="#lcd-no-data" x="317.4" y="226"/>
-    <use href="#lcd-no-data" x="142.6" y="318"/><use href="#lcd-no-data" x="317.4" y="318"/>
-  </g>
-  <g transform="translate(0 10)">
-  <g fill="url(#button-well)" stroke="#cbd6db" stroke-width="0.4" filter="url(#button-well-inset)">
-    <rect x="50" y="423" width="108" height="64" rx="12"/>
-    <rect x="176" y="423" width="108" height="64" rx="12"/>
-    <rect x="302" y="423" width="108" height="64" rx="12"/>
-  </g>
-  <g fill="url(#button)" stroke="url(#button-seam)" stroke-width="0.65" filter="url(#button-shadow)">
-    <rect x="52" y="425" width="104" height="60" rx="10"/>
-    <rect x="178" y="425" width="104" height="60" rx="10"/>
-    <rect x="304" y="425" width="104" height="60" rx="10"/>
-  </g>
-  <g fill="#505050" font-family="sans-serif" font-size="11.5" font-weight="600" text-anchor="middle">
-    <text x="104" y="475">ПИТАНИЕ</text><text x="230" y="475">ПРИТОК</text><text x="356" y="475">ВЫТЯЖКА</text>
-  </g>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="681" viewBox="0 0 680 681"><defs>
+<linearGradient id="body" x2="1" y2="1"><stop stop-color="#fafcfd"/><stop offset="1" stop-color="#dce6eb"/></linearGradient>
+<linearGradient id="lcd" x2="0" y2="1"><stop stop-color="#d5decc"/><stop offset=".2" stop-color="#edf0e7"/><stop offset="1" stop-color="#e0e6d7"/></linearGradient>
+<linearGradient id="btn" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#e3ebef"/></linearGradient>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1 1 9 5 1 9" fill="none" stroke="#505b48" stroke-width="1.5"/></marker></defs>
+<rect width="680" height="681" fill="#f5f6f7"/>
+<rect x="22" y="16" width="636" height="649" rx="29" fill="url(#body)" stroke="#c8d3d9"/>
+
+<g transform="translate(0 -35)"><rect x="47" y="76" width="586" height="493" rx="9" fill="#c3cdbb"/>
+<rect x="51" y="81" width="578" height="483" rx="6" fill="#e9ede2" stroke="#f8faf3" stroke-width="2"/>
+<path d="M55 87H625V110L55 139Z" fill="#fff" opacity=".22"/>
+<!-- Дом и наружная зона. Левая стена проходит через теплообменник. -->
+
+<g fill="none" stroke="#a6ae9c" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M324 194 466 112Q469 110 472 112L612 194"/><path d="M340 184.76V257 M340 345V448 M598 185.8V448"/></g>
+
+<g transform="translate(38 -64)" fill="none" stroke="#56614d" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="m302 327 38 38-38 38-38-38Z" stroke-width="2"/>
+<path d="M371 335H334L324 344 M318 349 284 380 M278 385 268 394H229"/>
+<path d="M229 335H268L278 344 M285 350 298 362 M305 369 318 380 M325 386 334 394H371"/><path d="m237 390-8 4 8 4 M363 390l8 4-8 4" stroke-width="1.8"/>
+</g><text x="276" y="259" text-anchor="middle" fill="#3b4533" font-family="Arial,sans-serif" font-size="16" font-weight="700">OA</text><text x="403" y="259" text-anchor="middle" fill="#3b4533" font-family="Arial,sans-serif" font-size="16" font-weight="700">RA</text><text x="276" y="354" text-anchor="middle" fill="#3b4533" font-family="Arial,sans-serif" font-size="16" font-weight="700">FR</text><text x="403" y="354" text-anchor="middle" fill="#3b4533" font-family="Arial,sans-serif" font-size="16" font-weight="700">SA</text>
+
+<path d="M74 463H606" stroke="#b7c1ad"/><path d="M74 552H606" stroke="#c8d0be" opacity=".5"/><rect x="47" y="595" width="184.667" height="77" rx="12" fill="#cbd6dc"/><rect x="49" y="597" width="180.667" height="72" rx="11" fill="url(#btn)" stroke="#abbac3"/><rect x="247.667" y="595" width="184.667" height="77" rx="12" fill="#cbd6dc"/><rect x="249.667" y="597" width="180.667" height="72" rx="11" fill="url(#btn)" stroke="#abbac3"/><rect x="448.333" y="595" width="184.667" height="77" rx="12" fill="#cbd6dc"/><rect x="450.333" y="597" width="180.667" height="72" rx="11" fill="url(#btn)" stroke="#abbac3"/><g transform="translate(45.58 -10.1) scale(.82)" stroke="#8c927d" fill="none" stroke-width="1.7" stroke-linecap="round"><path d="M274 295q-5-5 0-10t0-10m7 20q-5-5 0-10t0-10m7 20q-5-5 0-10t0-10"/><rect x="269" y="300" width="24" height="5" rx="1"/></g><g fill="#66705d" font-family="Arial,sans-serif" font-size="15"><text x="215" y="245">°C</text><text x="535" y="245">°C</text><text x="215" y="378">°C</text><text x="535" y="378">°C</text></g></g></svg>

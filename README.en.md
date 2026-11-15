@@ -17,7 +17,7 @@ Use the local web interface independently, connect to **Home Assistant** through
 - Compiled ESP32 firmware: [factory image for initial USB installation](bin/royalclima-firmware.factory.bin), [OTA update image](bin/royalclima-firmware.ota.bin).
 - [ESPHome configuration](ESPHome/RoyalClima.yaml).
 - Manufacturer documentation: [SOFFIO Primo manual](docs/2020_RC_Manual_Soffio-Primo.pdf), [DC (Primo) Modbus protocol](docs/Modbus%20protocol%20-%20DC%20%28Primo%29.pdf).
-- Home Assistant: [package](Hass/packages/royal_clima.yaml), [dashboard examples](Hass/dashboard/), [SVG assets](Hass/images/), [fonts and CSS](Hass/fonts/).
+- Home Assistant: [package](Hass/packages/royal_clima.yaml), [dashboard examples](Hass/dashboard/), [SVG assets](Hass/images/).
 
 ## Hardware and wiring
 
@@ -38,6 +38,14 @@ A **3.3 V MAX3485 module** with DI, RO, DE and /RE fits the wiring below. Module
 Connect module **A/B** to the unit's **A/B** terminals. Power the ESP32 through USB or its specified power input. Check terminal naming, bus reference grounding and termination against the equipment documentation; do not connect RS-485 signals directly to GPIOs.
 
 ![Manufacturer wiring diagram](images/scheme_en.png)
+
+### Power from the ventilation unit
+
+**This power option has not been tested in practice and requires verification on the specific unit.**
+
+An alternative is a simple, inexpensive **12 V → 5 V step-down DC-DC converter**, supplied from **+12 V and GND on the unit's RS-485 connector**. Connect its 5 V output to the ESP32 board's specified 5 V power input; a compatible 3.3 V transceiver can use the board's 3V3 output. In a non-isolated setup, the unit, converter, ESP32 and transceiver share ground.
+
+This makes a module with no separate external power supply, connected to the unit by **four wires in one connector: +12 V, GND, A and B**. The manufacturer diagram shows these terminals but does not specify the available 12 V output current. Confirm sufficient spare capacity in both the unit's output and the DC-DC converter, allowing for ESP32 Wi-Fi current peaks and other loads. **Do not apply 12 V directly to the ESP32.** Do not power it from USB and the converter simultaneously unless the board explicitly supports this; see [ESP32-DevKitC power options](https://docs.espressif.com/projects/esp-dev-kits/en/latest/esp32/esp32-devkitc/user_guide.html#power-supply-options).
 
 ## Firmware setup
 
@@ -82,14 +90,14 @@ API encryption, OTA password and web authentication are not configured in the su
 
 Use the [Git package example](ESPHome/examples/royalclima-git.yaml) as your local `royalclima.yaml` instead of copying the full firmware. Keep the same four Wi-Fi secrets in local `secrets.yaml`, and preserve your local API/OTA and pin settings. `refresh: 1h` controls Git cache refresh during validation/build; it does not install anything. The example tracks `main`; use a tag or commit SHA in `ref` to pin a version.
 
-The firmware exposes diagnostic `Project version` (`sensor.royal_clima_project_version`). Copy the optional [HA update-check package](Hass/packages/royal_clima_updates.yaml) to `/config/packages/`, validate and restart HA. Verify the entity IDs in your registry. It adds `sensor.royal_clima_latest_project_version` and `binary_sensor.royal_clima_update_available` (update device class). Git is checked every 6 hours; call `homeassistant.update_entity` on the latest-version sensor to check immediately. The indicator is unavailable when either version is unavailable.
+The firmware exposes diagnostic `Project version` (`sensor.royal_clima_project_version`). Copy the optional [HA update-check package](Hass/packages/royal_clima_updates.yaml) to `/config/packages/`, validate and restart HA. Verify the entity IDs in your registry. It adds `sensor.royal_clima_latest_project_version` and `binary_sensor.royal_clima_update_available` (update device class). Git is checked once a day; call `homeassistant.update_entity` on the latest-version sensor to check immediately. The indicator is unavailable when either version is unavailable. A persistent HA notification is created once per new version, with no reminders or phone push. `input_text.royal_clima_last_notified_version` restores the last notified version across HA restarts, so dismissing a notification does not cause it to reappear for the same version.
 
 The check compares installed `esphome.project.version` with the YAML on `main`, so commits without a version increase are not detected. It does not certify the freshness of `bin/*.bin`. Build and install manually through ESPHome OTA. Publish source changes to Git first: local changes are not visible to remote packages or HA. No downloadable-firmware manifest is used; prebuilt binaries may contain different build settings.
 ## Language support
 
 Minimal Russian and English support is available. `Message language` selects firmware status/error text (`ru` or `en`, default `en`). This device-wide setting persists across reboots and applies within 3 seconds.
 
-The control panel follows the Home Assistant interface language: Russian for `ru`, English for other languages. Reload the page after changing the interface language. The airflow diagram has a separate [English YAML](Hass/dashboard/royal-clima-airflow-en.yaml). Firmware messages and card labels use independent language settings; entity names and package settings remain shared. The examples are not fully localized. Fan steps use numbers 0–10, with 0 meaning stopped.
+The control panel and airflow diagram follow the Home Assistant interface language: Russian for `ru`, English for other languages. Reload the page after changing the interface language. The airflow diagram uses one YAML and one shared SVG for all states; translated labels are defined in YAML. Firmware messages and card labels use independent language settings; entity names and package settings remain shared. The examples are not fully localized. Fan steps use numbers 0–10, with 0 meaning stopped.
 
 ## Modbus behavior
 
@@ -178,34 +186,32 @@ These calculations use `sensor.ventilation_system_fan_runtime` and `sensor.venti
 | YAML | Contents | Additional resources |
 |---|---|---|
 | [royal-clima-panel.yaml](Hass/dashboard/royal-clima-panel.yaml) | Control panel with temperatures, fan steps and status indicators | [card-mod](https://github.com/thomasloven/lovelace-card-mod), [Config Template Card](https://github.com/iantrich/config-template-card) |
-| [royal-clima-airflow.yaml](Hass/dashboard/royal-clima-airflow.yaml) | Airflow diagram with temperatures, fan steps and power control; [English version](Hass/dashboard/royal-clima-airflow-en.yaml) | [Mushroom](https://github.com/piitaya/lovelace-mushroom) |
+| [royal-clima-airflow.yaml](Hass/dashboard/royal-clima-airflow.yaml) | Airflow diagram with temperatures, fan steps, power control and automatic language selection | [Config Template Card](https://github.com/iantrich/config-template-card), [Mushroom](https://github.com/piitaya/lovelace-mushroom) |
 | [royal-clima-vent-tab.yaml](Hass/dashboard/royal-clima-vent-tab.yaml) | Complete `sections` view with control, history and diagnostics; `path: vent` | [Mushroom](https://github.com/piitaya/lovelace-mushroom), [stack-in-card](https://github.com/custom-cards/stack-in-card), [fold-entity-row](https://github.com/thomasloven/lovelace-fold-entity-row) |
 
-1. Install the HA package and the additional resources required by your example. The control panel needs Config Template Card with `/hacsfiles/config-template-card/config-template-card.js` registered as a **JavaScript module** resource.
-2. Copy **all SVG files** from [Hass/images](Hass/images/) to **`/config/www/images/`**, keeping their names. The root `images/` directory contains README illustrations and is not needed by the cards.
+Upload these files to `/config/www/images/`:
+
+| Card | SVG files |
+|---|---|
+| Control panel | `royal-clima-panel.svg`, `royal-clima-panel-fan.svg` |
+| Airflow diagram | `royal-clima-airflow.svg`, `royal-clima-fan.svg` |
+
+Both cards together need four SVG files. Each card uses one YAML for Russian and English; separate language files and state-specific SVGs are not needed. Labels are defined in YAML and follow the HA interface language.
+
+1. Install the HA package and the additional resources required by your example. The control panel and airflow diagram need Config Template Card with `/hacsfiles/config-template-card/config-template-card.js` registered as a **JavaScript module** resource.
+2. Copy the SVG files listed above for your chosen cards from [Hass/images](Hass/images/) to **`/config/www/images/`**, keeping their names. The root `images/` directory contains README illustrations and is not needed by the cards.
 3. Card URLs already use `/local/images/filename.svg`, which maps to `/config/www/images/filename.svg`. If you create `www` for the first time, restart HA. See [HA static file hosting](https://www.home-assistant.io/integrations/http/#hosting-files).
-4. For the control panel, copy [Hass/fonts](Hass/fonts/) contents to `/config/www/fonts/`. Add `/local/fonts/royal-clima-lcd.css?v=1` as a dashboard resource of type **CSS / stylesheet**. Without it, the panel uses a monospace fallback.
-5. To install either standalone card, edit your dashboard, choose **Add card → Manual**, paste the complete card YAML, check entity IDs and save. For the complete view, paste its YAML into the **view configuration editor**, not a single-card editor.
-6. Refresh the browser after updating SVG, CSS or fonts; clear its cache if older assets remain visible.
+4. To install either standalone card, edit your dashboard, choose **Add card → Manual**, paste the complete card YAML, check entity IDs and save. For the complete view, paste its YAML into the **view configuration editor**, not a single-card editor.
+5. Refresh the browser after updating SVG or YAML; clear its cache if older assets remain visible.
+
+The airflow diagram only needs `royal-clima-airflow.svg` and `royal-clima-fan.svg`. URL fragments select the shared diagram state; translated labels are rendered over it from YAML.
 
 Fan animation represents power on and a nonzero step, not measured RPM or airflow. Arrows show flow direction. Temperature history requires Recorder. The full view hides control and temperatures when the relevant connections are lost and keeps a confirmation prompt for ESP32 restart. Replace or remove its installation-specific badges `binary_sensor.mega1_port2` and `switch.mega1_port9`.
 
 **Control panel**
 
-![Control panel example](images/control_work.png)
+![Control panel example](images/control_work-en.png)
 
 **Airflow: running**
 
-![Airflow while running](images/flow_work.png)
-
-**Airflow: off**
-
-![Airflow while off](images/flow_off.png)
-
-**Airflow: disconnected**
-
-![Airflow without a connection](images/flow_unavail.png)
-
-**Complete view**
-
-![Complete ventilation view](images/vent-work.png)
+![Airflow while running](images/flow_work-en.png)
