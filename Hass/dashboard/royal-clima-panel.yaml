@@ -14,7 +14,7 @@ variables:
 entities:
   - "sensor.ventilation_system_outdoor_air_temperature"
   - "sensor.ventilation_system_return_air_temperature"
-  - "sensor.ventilation_system_defrost_temperature"
+  - "sensor.ventilation_system_exhaust_air_temperature"
   - "sensor.ventilation_system_supply_air_temperature"
   - "select.royal_clima_exhaust_speed"
   - "select.royal_clima_supply_speed"
@@ -25,8 +25,8 @@ entities:
   - "binary_sensor.ventilation_system_bypass_open"
   - "binary_sensor.ventilation_system_defrost_active"
   - "binary_sensor.royal_clima_filter_replacement_recommended"
-  - "binary_sensor.ventilation_system_external_boost_active"
-  - "binary_sensor.ventilation_system_co2_boost_active"
+  - "binary_sensor.ventilation_system_external_input_boost_active"
+  - "binary_sensor.ventilation_system_sensor_boost_active"
   - "switch.royal_clima_power"
   - "binary_sensor.ventilation_system_ventilation_power"
   - "sensor.ventilation_system_exhaust_fan_speed"
@@ -64,9 +64,9 @@ card:
             action: "more-info"
         -
           type: "image"
-          entity: "sensor.ventilation_system_defrost_temperature"
+          entity: "sensor.ventilation_system_exhaust_air_temperature"
           title: "${vars[0] ? \"Вытяжка\" : \"Exhaust\"}"
-          image: "${vars[1](states[\"sensor.ventilation_system_defrost_temperature\"]?.state, true)}"
+          image: "${vars[1](states[\"sensor.ventilation_system_exhaust_air_temperature\"]?.state, true)}"
           style:
             left: "21.02941%"
             top: "52.12922%"
@@ -616,7 +616,7 @@ card:
                 action: "more-info"
         -
           type: "icon"
-          entity: "binary_sensor.ventilation_system_external_boost_active"
+          entity: "binary_sensor.ventilation_system_external_input_boost_active"
           icon: "mdi:fan-plus"
           title: "${vars[0] ? \"Внешнее форсирование\" : \"External boost\"}"
           style:
@@ -637,12 +637,12 @@ card:
               entity: "binary_sensor.ventilation_system_vent_system_online"
               state: "on"
             -
-              entity: "binary_sensor.ventilation_system_external_boost_active"
+              entity: "binary_sensor.ventilation_system_external_input_boost_active"
               state: "on"
           elements:
             -
               type: "icon"
-              entity: "binary_sensor.ventilation_system_external_boost_active"
+              entity: "binary_sensor.ventilation_system_external_input_boost_active"
               icon: "mdi:fan-plus"
               title: "${vars[0] ? \"Внешнее форсирование\" : \"External boost\"}"
               style:
@@ -655,7 +655,7 @@ card:
                 action: "more-info"
         -
           type: "icon"
-          entity: "binary_sensor.ventilation_system_co2_boost_active"
+          entity: "binary_sensor.ventilation_system_sensor_boost_active"
           icon: "mdi:molecule-co2"
           title: "${vars[0] ? \"Форсирование по CO₂\" : \"CO₂ boost\"}"
           style:
@@ -676,12 +676,12 @@ card:
               entity: "binary_sensor.ventilation_system_vent_system_online"
               state: "on"
             -
-              entity: "binary_sensor.ventilation_system_co2_boost_active"
+              entity: "binary_sensor.ventilation_system_sensor_boost_active"
               state: "on"
           elements:
             -
               type: "icon"
-              entity: "binary_sensor.ventilation_system_co2_boost_active"
+              entity: "binary_sensor.ventilation_system_sensor_boost_active"
               icon: "mdi:molecule-co2"
               title: "${vars[0] ? \"Форсирование по CO₂\" : \"CO₂ boost\"}"
               style:

@@ -15,7 +15,7 @@ ESP32 позволяет получать показания и управлят
 В данном проекте вы найдете:
 
 - Скомпилированные прошивки для ESP32: [firmware для первоначальной установки](bin/royalclima-firmware.factory.bin) и [OTA для обновления](bin/royalclima-firmware.ota.bin).
-- [Конфигурацию для ESPHome](ESPHome/RoyalClima.yaml).
+- [Конфигурацию для ESPHome](RoyalClima.yaml).
 - [Документацию](docs/): [руководство SOFFIO Primo](docs/2020_RC_Manual_Soffio-Primo.pdf) и [протокол Modbus DC (Primo)](docs/Modbus%20protocol%20-%20DC%20%28Primo%29.pdf).
 - Файлы для использования в Hass: [пакет шаблонов и управления](Hass/packages/royal_clima.yaml), [примеры дашбордов и карточек](Hass/dashboard/), [SVG для карточек](Hass/images/).
 
@@ -91,7 +91,7 @@ ESP32 позволяет получать показания и управлят
 
 - Чтение четырёх температур: наружного воздуха OA, возвратного воздуха RA, притока SA и выбрасываемого воздуха FR.
 - Включение и выключение установки, независимый выбор ступени приточного и вытяжного вентиляторов.
-- Отображение байпаса, разморозки, пожарного входа, внешнего форсирования и форсирования по CO₂.
+- Отображение байпаса, разморозки, пожарного входа, форсирования по внешнему входу и по датчику.
 - Статусы и расшифровки ошибок на русском или английском языке с исходным числовым кодом. Язык выбирается в «Настройках» через `Message language` (`ru` / `en`), сохраняется после перезагрузки и применяется в течение 3 секунд; по умолчанию `en`.
 - Чтение уставок влажности и нагревателя, настроенного интервала напоминания о фильтре и наработки вентилятора в часах.
 - Диагностика Modbus, Wi-Fi и времени работы ESP32.
@@ -109,7 +109,7 @@ ESP32 позволяет получать показания и управлят
 
 Для самостоятельной сборки нужен ESPHome с поддержкой используемых компонентов, `esphome.devices` и ESP-IDF. Минимальная проверенная версия ESPHome пока не зафиксирована; перед прошивкой проверьте YAML в своей версии ESPHome.
 
-1. Скопируйте [RoyalClima.yaml](ESPHome/RoyalClima.yaml) в рабочий каталог ESPHome.
+1. Скопируйте [RoyalClima.yaml](RoyalClima.yaml) в рабочий каталог ESPHome.
 2. Создайте рядом `secrets.yaml`. В исходной конфигурации заданы две сети Wi-Fi, поэтому нужны четыре значения:
 
    ```yaml
@@ -184,7 +184,7 @@ api:
 
 ### Полный перечень сущностей
 
-Имена ниже соответствуют текущему [ESPHome YAML](ESPHome/RoyalClima.yaml). Все сенсоры прошивки перечислены по одному, включая исходные регистры и диагностику.
+Имена ниже соответствуют текущему [ESPHome YAML](RoyalClima.yaml). Все сенсоры прошивки перечислены по одному, включая исходные регистры и диагностику.
 
 `entity_id` приведены для стандартных имён устройств: `Ventilation System` → `ventilation_system_*`, `Royal Clima` → `royal_clima_*`. В HA после переименования или при конфликтах имён фактические ID могут отличаться — сверяйте их в реестре сущностей. Текстовые сенсоры ESPHome в HA имеют домен `sensor`.
 
@@ -197,7 +197,7 @@ api:
 | Return air temperature<br>`sensor.ventilation_system_return_air_temperature` | Температура возвратного воздуха из помещения RA, °C. Источник: регистр 12. |
 | Outdoor air temperature<br>`sensor.ventilation_system_outdoor_air_temperature` | Температура наружного воздуха OA, °C. Источник: регистр 13. |
 | Supply Air Temperature<br>`sensor.ventilation_system_supply_air_temperature` | Температура приточного воздуха SA, °C. Источник: регистр 14. |
-| Defrost temperature<br>`sensor.ventilation_system_defrost_temperature` | Температура выбрасываемого воздуха FR, °C. Источник: регистр 15. |
+| Exhaust air temperature<br>`sensor.ventilation_system_exhaust_air_temperature` | Температура выбрасываемого воздуха FR, °C. Источник: регистр 15. |
 | Supply fan speed<br>`sensor.ventilation_system_supply_fan_speed` | Прочитанная ступень притока 0–10: 0 — остановка. Не RPM и не проценты скорости; неизвестный код даёт неизвестное значение. Источник: регистр 10. |
 | Exhaust fan speed<br>`sensor.ventilation_system_exhaust_fan_speed` | Прочитанная ступень вытяжки 0–10: 0 — остановка. Не RPM и не проценты скорости; неизвестный код даёт неизвестное значение. Источник: регистр 11. |
 | Humidity setpoint<br>`sensor.ventilation_system_humidity_setpoint` | Прочитанная уставка влажности 1–99 %, не измеренная влажность. Источник: регистр 19. |
@@ -214,9 +214,11 @@ api:
 | Exhaust fan speed code *<br>`sensor.ventilation_system_exhaust_fan_speed_code` | Код ступени вытяжного вентилятора до преобразования в 0–10. Источник: регистр 11. |
 | Status flags raw *<br>`sensor.ventilation_system_status_flags_raw` | Битовая маска состояний: бит 0 — пожарный вход, 1 — байпас открыт, 2 — байпас закрыт, 3 — разморозка. Источник: регистр 18. |
 | Error flags raw *<br>`sensor.ventilation_system_error_flags_raw` | Исходная битовая маска ошибок: 0 — ошибок нет; несколько ошибок могут быть активны одновременно. Источник: регистр 20. |
-| External boost signal raw *<br>`sensor.ventilation_system_external_boost_signal_raw` | Исходный внешний сигнал форсирования: 0 — неактивен, 1 — активен. Источник: регистр 16. |
-| CO2 boost signal raw *<br>`sensor.ventilation_system_co2_boost_signal_raw` | Исходный сигнал форсирования по CO₂: 0 — неактивен, 1 — активен. Не концентрация CO₂. Источник: регистр 17. |
+| External input boost signal raw *<br>`sensor.ventilation_system_external_input_boost_signal_raw` | Исходный сигнал форсирования по внешнему входу: 0 — неактивен, 1 — активен. Источник: регистр 16. |
+| Sensor boost signal raw *<br>`sensor.ventilation_system_sensor_boost_signal_raw` | Исходный сигнал форсирования по датчику CO₂ или влажности, в зависимости от настроек ПВУ: 0 — неактивен, 1 — активен. Не концентрация CO₂. Источник: регистр 17. |
 | Filter interval code *<br>`sensor.ventilation_system_filter_interval_code` | Код периода напоминания: 0/1/2/3 соответствует 45/60/90/180 дням. Источник: регистр 25. |
+
+Названия форсирования разделяют внешний вход (регистр 16) и датчик (регистр 17). Тип датчика для форсирования — CO₂ или влажность — выбирается на самом рекуператоре: SW4-3 = OFF для CO₂, ON для влажности; требуется соответствующий подключённый датчик. ESPHome не определяет выбранный режим автоматически. В протоколе регистр 17 обозначен как CO2; его поведение при контроле по влажности пока не проверено. Активным считается значение 1.
 
 #### Двоичные состояния установки
 
@@ -229,8 +231,8 @@ api:
 | Defrost active<br>`binary_sensor.ventilation_system_defrost_active` | on — активна разморозка, off — неактивна; при отсутствии данных — неизвестно. Источник: регистр 18, бит 3. |
 | Fire alarm<br>`binary_sensor.ventilation_system_fire_alarm` | on — активен пожарный вход установки, off — неактивен. Это сигнал контроллера, не самостоятельное измерение дыма. Источник: регистр 18, бит 0. |
 | Ventilation error<br>`binary_sensor.ventilation_system_ventilation_error` | on — маска ошибок ненулевая, off — ошибок нет. Расшифровка доступна в Error description; при отсутствии данных — неизвестно. Источник: регистр 20. |
-| External boost active<br>`binary_sensor.ventilation_system_external_boost_active` | on — активен запрос внешнего форсирования высокой скорости (значение регистра 1), off — неактивен. Источник: регистр 16. |
-| CO2 boost active<br>`binary_sensor.ventilation_system_co2_boost_active` | on — активен запрос форсирования по CO₂ (значение регистра 1), off — неактивен. Не измерение ppm. Источник: регистр 17. |
+| External input boost active<br>`binary_sensor.ventilation_system_external_input_boost_active` | on — активен запрос форсирования по внешнему входу (значение регистра 1), off — неактивен. Источник: регистр 16. |
+| Sensor boost active<br>`binary_sensor.ventilation_system_sensor_boost_active` | on — активен запрос форсирования по датчику CO₂ или влажности, согласно настройкам ПВУ (значение регистра 1), off — неактивен. Не измерение ppm. Источник: регистр 17. |
 
 #### Текстовые состояния установки
 

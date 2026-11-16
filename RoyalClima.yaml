@@ -32,7 +32,7 @@ esphome:
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.5.261116
+    version: 0.6.261116
   devices:
     - id: device_vent
       name: "Ventilation System"
@@ -269,7 +269,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     # Регистр 15 (R): температура выбрасываемого воздуха FR, °C; исходное значение минус 40.
-    name: "Defrost temperature"
+    name: "Exhaust air temperature"
     address: 15
     register_type: holding
     value_type: U_WORD
@@ -383,9 +383,9 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
-    id: external_signal_raw
-    # Регистр 16 (R): внешний сигнал форсирования, 0 — неактивен, 1 — активен. Отключён по умолчанию.
-    name: "External boost signal raw"
+    id: external_input_boost_signal_raw
+    # Регистр 16 (R): сигнал форсирования по внешнему входу, 0 — неактивен, 1 — активен. Отключён по умолчанию.
+    name: "External input boost signal raw"
     disabled_by_default: true
     address: 16
     register_type: holding
@@ -397,9 +397,10 @@ sensor:
       - timeout: ${stale_timeout}
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
-    id: co2_signal_raw
-    # Регистр 17 (R): сигнал форсирования по CO₂, 0 — неактивен, 1 — активен. Отключён по умолчанию.
-    name: "CO2 boost signal raw"
+    id: sensor_boost_signal_raw
+    # Регистр 17 (R): сигнал форсирования по датчику CO2 или влажности, в зависимости от настроек ПВУ.
+    # 0 — неактивен, 1 — активен. В протоколе обозначен CO2; отключён по умолчанию.
+    name: "Sensor boost signal raw"
     disabled_by_default: true
     address: 17
     register_type: holding
@@ -647,9 +648,9 @@ binary_sensor:
       }
       return raw != 0;
   - platform: template
-    id: external_boost_active
-    # Активно внешнее форсирование высокой скорости по регистру 16.
-    name: "External boost active"
+    id: external_input_boost_active
+    # Активно форсирование по внешнему входу по регистру 16.
+    name: "External input boost active"
     icon: mdi:fan-plus
     device_class: running
     device_id: device_vent
@@ -658,17 +659,19 @@ binary_sensor:
       const uint32_t now = millis();
       if (uint32_t(now - last_check) < 3000) return {};
       last_check = now;
-      const float raw = id(external_signal_raw).state;
+      const float raw = id(external_input_boost_signal_raw).state;
       if (isnan(raw)) {
-        id(external_boost_active).invalidate_state();
+        id(external_input_boost_active).invalidate_state();
         return {};
       }
       return raw == 1;
   - platform: template
-    id: co2_boost_active
-    # Активно форсирование по CO₂ по регистру 17; не концентрация CO₂.
-    name: "CO2 boost active"
-    icon: mdi:molecule-co2
+    id: sensor_boost_active
+    # Форсирование по датчику CO2 или влажности выбирается на самой ПВУ (SW4-3).
+    # Регистр 17 — признак активности, не измеренная концентрация или влажность.
+    # В протоколе регистр назван CO2; поведение в режиме влажности пока не проверено.
+    name: "Sensor boost active"
+    icon: mdi:fan-auto
     device_class: running
     device_id: device_vent
     lambda: |-
@@ -676,9 +679,9 @@ binary_sensor:
       const uint32_t now = millis();
       if (uint32_t(now - last_check) < 3000) return {};
       last_check = now;
-      const float raw = id(co2_signal_raw).state;
+      const float raw = id(sensor_boost_signal_raw).state;
       if (isnan(raw)) {
-        id(co2_boost_active).invalidate_state();
+        id(sensor_boost_active).invalidate_state();
         return {};
       }
       return raw == 1;

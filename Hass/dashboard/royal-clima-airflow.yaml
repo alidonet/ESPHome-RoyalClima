@@ -2,7 +2,7 @@
 # Скопируйте royal-clima-airflow.svg и royal-clima-fan.svg в /config/www/images/.
 # Язык профиля HA: ru — русский, остальные — английский; после смены языка перезагрузите дашборд.
 # Постоянные подписи формируются здесь один раз для всех состояний; SVG содержит только геометрию и прочерки.
-# Скорости — ступени 0–10; FR — выброс воздуха, CO2 — признак форсирования. Связь не гарантирует свежесть всех регистров.
+# Скорости — ступени 0–10; FR — выброс воздуха, регистр 17 — признак форсирования по датчику. Связь не гарантирует свежесть всех регистров.
 type: custom:config-template-card
 variables:
 - (this.hass.locale?.language || this.hass.language || 'en').toLowerCase().startsWith('ru')
@@ -14,16 +14,16 @@ entities:
 - binary_sensor.royal_clima_esp32_connection
 - binary_sensor.royal_clima_filter_replacement_recommended
 - binary_sensor.ventilation_system_bypass_open
-- binary_sensor.ventilation_system_co2_boost_active
+- binary_sensor.ventilation_system_sensor_boost_active
 - binary_sensor.ventilation_system_defrost_active
-- binary_sensor.ventilation_system_external_boost_active
+- binary_sensor.ventilation_system_external_input_boost_active
 - binary_sensor.ventilation_system_fire_alarm
 - binary_sensor.ventilation_system_vent_system_online
 - binary_sensor.ventilation_system_ventilation_error
 - binary_sensor.ventilation_system_ventilation_power
 - select.royal_clima_exhaust_speed
 - select.royal_clima_supply_speed
-- sensor.ventilation_system_defrost_temperature
+- sensor.ventilation_system_exhaust_air_temperature
 - sensor.ventilation_system_exhaust_fan_speed
 - sensor.ventilation_system_outdoor_air_temperature
 - sensor.ventilation_system_return_air_temperature
@@ -178,13 +178,13 @@ card:
           action: more-info
     - type: conditional
       conditions:
-      - entity: sensor.ventilation_system_defrost_temperature
+      - entity: sensor.ventilation_system_exhaust_air_temperature
         state_not: unknown
-      - entity: sensor.ventilation_system_defrost_temperature
+      - entity: sensor.ventilation_system_exhaust_air_temperature
         state_not: unavailable
       elements:
       - type: state-label
-        entity: sensor.ventilation_system_defrost_temperature
+        entity: sensor.ventilation_system_exhaust_air_temperature
         title: '${vars[0] ? "Датчик разморозки · FR (не температура выброса)" : "Defrost sensor · FR (not an exhaust air measurement)"}'
         style:
           left: 19.53125%
@@ -407,10 +407,10 @@ card:
         entity: binary_sensor.ventilation_system_bypass_open
         state: 'on'
       - condition: state
-        entity: binary_sensor.ventilation_system_external_boost_active
+        entity: binary_sensor.ventilation_system_external_input_boost_active
         state: 'on'
       - condition: state
-        entity: binary_sensor.ventilation_system_co2_boost_active
+        entity: binary_sensor.ventilation_system_sensor_boost_active
         state: 'on'
     elements:
     - type: custom:mushroom-chips-card
@@ -503,11 +503,11 @@ card:
             action: more-info
       - type: conditional
         conditions:
-        - entity: binary_sensor.ventilation_system_external_boost_active
+        - entity: binary_sensor.ventilation_system_external_input_boost_active
           state: 'on'
         chip:
           type: entity
-          entity: binary_sensor.ventilation_system_external_boost_active
+          entity: binary_sensor.ventilation_system_external_input_boost_active
           name: '${vars[0] ? "Внешнее форсирование" : "External boost"}'
           icon: mdi:fan-plus
           icon_color: amber
@@ -516,11 +516,11 @@ card:
             action: more-info
       - type: conditional
         conditions:
-        - entity: binary_sensor.ventilation_system_co2_boost_active
+        - entity: binary_sensor.ventilation_system_sensor_boost_active
           state: 'on'
         chip:
           type: entity
-          entity: binary_sensor.ventilation_system_co2_boost_active
+          entity: binary_sensor.ventilation_system_sensor_boost_active
           name: '${vars[0] ? "Форсирование по CO₂ (не ppm)" : "CO₂ boost (not a ppm reading)"}'
           icon: mdi:molecule-co2
           icon_color: amber

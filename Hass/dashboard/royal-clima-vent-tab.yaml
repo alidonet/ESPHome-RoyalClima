@@ -190,7 +190,7 @@ sections:
                   name: Из помещения · RA
                 - entity: sensor.ventilation_system_supply_air_temperature
                   name: Приток · SA
-                - entity: sensor.ventilation_system_defrost_temperature
+                - entity: sensor.ventilation_system_exhaust_air_temperature
                   name: Датчик разморозки
             - type: history-graph
               # Сущности температур должны записываться Recorder.
@@ -206,7 +206,7 @@ sections:
                 - entity: sensor.ventilation_system_supply_air_temperature
                   name: Приток · SA
                   color: "#66bb6a"
-                - entity: sensor.ventilation_system_defrost_temperature
+                - entity: sensor.ventilation_system_exhaust_air_temperature
                   name: Датчик разморозки
                   color: "#ab47bc"
       - type: conditional
@@ -261,9 +261,9 @@ sections:
                   name: Байпас
                 - entity: binary_sensor.ventilation_system_defrost_active
                   name: Разморозка
-                - entity: binary_sensor.ventilation_system_external_boost_active
+                - entity: binary_sensor.ventilation_system_external_input_boost_active
                   name: Внешнее форсирование
-                - entity: binary_sensor.ventilation_system_co2_boost_active
+                - entity: binary_sensor.ventilation_system_sensor_boost_active
                   name: Форсирование по CO₂
           - type: conditional
             conditions:

@@ -15,7 +15,7 @@ Use the local web interface independently, connect to **Home Assistant** through
 ## Project files
 
 - Compiled ESP32 firmware: [factory image for initial USB installation](bin/royalclima-firmware.factory.bin), [OTA update image](bin/royalclima-firmware.ota.bin).
-- [ESPHome configuration](ESPHome/RoyalClima.yaml).
+- [ESPHome configuration](RoyalClima.yaml).
 - Manufacturer documentation: [SOFFIO Primo manual](docs/2020_RC_Manual_Soffio-Primo.pdf), [DC (Primo) Modbus protocol](docs/Modbus%20protocol%20-%20DC%20%28Primo%29.pdf).
 - Home Assistant: [package](Hass/packages/royal_clima.yaml), [dashboard examples](Hass/dashboard/), [SVG assets](Hass/images/).
 
@@ -49,7 +49,7 @@ This makes a module with no separate external power supply, connected to the uni
 
 ## Firmware setup
 
-1. Copy [RoyalClima.yaml](ESPHome/RoyalClima.yaml) into your ESPHome configuration directory. The build needs support for ESP-IDF, `esphome.devices` and the components used in the file; a minimum tested ESPHome version is not specified.
+1. Copy [RoyalClima.yaml](RoyalClima.yaml) into your ESPHome configuration directory. The build needs support for ESP-IDF, `esphome.devices` and the components used in the file; a minimum tested ESPHome version is not specified.
 2. Create `secrets.yaml` beside it:
 
    ```yaml
@@ -116,7 +116,7 @@ Logging is WARN. Standard Modbus component warnings are suppressed while ERROR m
 
 ## Entities
 
-The following inventory lists every sensor in the current [ESPHome YAML](ESPHome/RoyalClima.yaml), including raw registers and diagnostics.
+The following inventory lists every sensor in the current [ESPHome YAML](RoyalClima.yaml), including raw registers and diagnostics.
 
 Entity IDs assume the default device names: `Ventilation System` → `ventilation_system_*`, `Royal Clima` → `royal_clima_*`. Renaming or name conflicts in HA can change the actual IDs; check the entity registry. ESPHome text sensors use the HA `sensor` domain.
 
@@ -129,7 +129,7 @@ Entity IDs assume the default device names: `Ventilation System` → `ventilatio
 | Return air temperature<br>`sensor.ventilation_system_return_air_temperature` | Return air temperature RA, °C. Source: register 12. |
 | Outdoor air temperature<br>`sensor.ventilation_system_outdoor_air_temperature` | Outdoor air temperature OA, °C. Source: register 13. |
 | Supply Air Temperature<br>`sensor.ventilation_system_supply_air_temperature` | Supply air temperature SA, °C. Source: register 14. |
-| Defrost temperature<br>`sensor.ventilation_system_defrost_temperature` | Exhaust air temperature FR, °C. Source: register 15. |
+| Exhaust air temperature<br>`sensor.ventilation_system_exhaust_air_temperature` | Exhaust air temperature FR, °C. Source: register 15. |
 | Supply fan speed<br>`sensor.ventilation_system_supply_fan_speed` | Read-back supply step 0–10; 0 means stopped. Not RPM or a percentage. Unrecognized codes produce an unknown value. Source: register 10. |
 | Exhaust fan speed<br>`sensor.ventilation_system_exhaust_fan_speed` | Read-back exhaust step 0–10; 0 means stopped. Not RPM or a percentage. Unrecognized codes produce an unknown value. Source: register 11. |
 | Humidity setpoint<br>`sensor.ventilation_system_humidity_setpoint` | Read-back humidity setpoint, 1–99 %, not measured humidity. Source: register 19. |
@@ -146,9 +146,11 @@ Entity IDs assume the default device names: `Ventilation System` → `ventilatio
 | Exhaust fan speed code *<br>`sensor.ventilation_system_exhaust_fan_speed_code` | Exhaust fan protocol code before conversion to step 0–10. Source: register 11. |
 | Status flags raw *<br>`sensor.ventilation_system_status_flags_raw` | Status bitmask: bit 0 fire input, 1 bypass open, 2 bypass closed, 3 defrost. Source: register 18. |
 | Error flags raw *<br>`sensor.ventilation_system_error_flags_raw` | Raw error bitmask: 0 means no errors; multiple faults may coexist. Source: register 20. |
-| External boost signal raw *<br>`sensor.ventilation_system_external_boost_signal_raw` | Raw external boost signal: 0 inactive, 1 active. Source: register 16. |
-| CO2 boost signal raw *<br>`sensor.ventilation_system_co2_boost_signal_raw` | Raw CO₂ boost signal: 0 inactive, 1 active. Not CO₂ concentration. Source: register 17. |
+| External input boost signal raw *<br>`sensor.ventilation_system_external_input_boost_signal_raw` | Raw external-input boost signal: 0 inactive, 1 active. Source: register 16. |
+| Sensor boost signal raw *<br>`sensor.ventilation_system_sensor_boost_signal_raw` | Raw CO₂ or humidity sensor boost signal, depending on the unit settings: 0 inactive, 1 active. Not CO₂ concentration. Source: register 17. |
 | Filter interval code *<br>`sensor.ventilation_system_filter_interval_code` | Reminder period code: 0/1/2/3 maps to 45/60/90/180 days. Source: register 25. |
+
+Boost names distinguish the external input (register 16) from the sensor signal (register 17). The ventilation unit selects CO₂ or humidity control: SW4-3 = OFF for CO₂, ON for humidity; the corresponding sensor must be connected. ESPHome does not automatically identify the selected mode. The protocol calls register 17 CO2; its behavior in humidity-control mode has not been verified. A value of 1 means active.
 
 ### Unit binary states
 
@@ -161,8 +163,8 @@ Entity IDs assume the default device names: `Ventilation System` → `ventilatio
 | Defrost active<br>`binary_sensor.ventilation_system_defrost_active` | On while defrost is active, off otherwise; unknown without source data. Source: register 18, bit 3. |
 | Fire alarm<br>`binary_sensor.ventilation_system_fire_alarm` | On when the unit fire input is active, off otherwise. A controller signal, not an independent smoke measurement. Source: register 18, bit 0. |
 | Ventilation error<br>`binary_sensor.ventilation_system_ventilation_error` | On for a nonzero error mask, off when no faults are reported. See Error description; unknown without source data. Source: register 20. |
-| External boost active<br>`binary_sensor.ventilation_system_external_boost_active` | On for an external high-speed boost request (register value 1), off otherwise. Source: register 16. |
-| CO2 boost active<br>`binary_sensor.ventilation_system_co2_boost_active` | On for a CO₂ boost request (register value 1), off otherwise. Not a ppm measurement. Source: register 17. |
+| External input boost active<br>`binary_sensor.ventilation_system_external_input_boost_active` | On for an external-input boost request (register value 1), off otherwise. Source: register 16. |
+| Sensor boost active<br>`binary_sensor.ventilation_system_sensor_boost_active` | On for a CO₂ or humidity sensor boost request according to the unit settings (register value 1), off otherwise. Not a ppm measurement. Source: register 17. |
 
 ### Unit text states
 
