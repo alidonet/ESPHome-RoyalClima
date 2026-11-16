@@ -116,39 +116,89 @@ Logging is WARN. Standard Modbus component warnings are suppressed while ERROR m
 
 ## Entities
 
-Names below match the YAML. Unit entities belong to **Ventilation System**; ESP32 diagnostics belong to **Royal Clima**. HA entity IDs may differ after renaming or registry changes. Entries marked * are disabled by default in HA.
+The following inventory lists every sensor in the current [ESPHome YAML](ESPHome/RoyalClima.yaml), including raw registers and diagnostics.
 
-| Numeric sensors | Meaning / register |
+Entity IDs assume the default device names: `Ventilation System` → `ventilation_system_*`, `Royal Clima` → `royal_clima_*`. Renaming or name conflicts in HA can change the actual IDs; check the entity registry. ESPHome text sensors use the HA `sensor` domain.
+
+\* marks entities disabled by default in HA; enable them in the integration settings if needed. Internal register reads remain active.
+
+### Operating measurements and setpoints
+
+| Entity / expected entity_id | Description |
 |---|---|
-| Power state raw * | Off/on code, 9 |
-| Supply fan speed code *; Exhaust fan speed code * | Protocol codes, 10 / 11 |
-| Return air temperature; Outdoor air temperature | Return RA / outdoor OA, °C, 12 / 13 |
-| Supply Air Temperature; Defrost temperature | Supply SA / defrost sensor, °C, 14 / 15 |
-| External boost signal raw *; CO2 boost signal raw * | Boost flags, 16 / 17; not CO₂ ppm |
-| Status flags raw *; Error flags raw * | Bitmasks, 18 / 20 |
-| Humidity setpoint; Heater temperature setpoint | Configured humidity 1–99 % / heater temperature 10–25 °C, 19 / 27 |
-| Filter interval code *; Filter reminder interval | Code / configured reminder period: 45, 60, 90 or 180 days, 25; not days remaining |
-| Fan runtime | Hours of operation, 769; raw unit is 0.1 h |
-| Supply fan speed; Exhaust fan speed | Decoded steps 0–10 from 10 / 11 |
-| Seconds since last data; Offline events | Main read age in seconds / offline transition count |
-| WiFi signal; Uptime | ESP32 Wi-Fi signal in dBm / time since boot in seconds |
+| Return air temperature<br>`sensor.ventilation_system_return_air_temperature` | Return air temperature RA, °C. Source: register 12. |
+| Outdoor air temperature<br>`sensor.ventilation_system_outdoor_air_temperature` | Outdoor air temperature OA, °C. Source: register 13. |
+| Supply Air Temperature<br>`sensor.ventilation_system_supply_air_temperature` | Supply air temperature SA, °C. Source: register 14. |
+| Defrost temperature<br>`sensor.ventilation_system_defrost_temperature` | Exhaust air temperature FR, °C. Source: register 15. |
+| Supply fan speed<br>`sensor.ventilation_system_supply_fan_speed` | Read-back supply step 0–10; 0 means stopped. Not RPM or a percentage. Unrecognized codes produce an unknown value. Source: register 10. |
+| Exhaust fan speed<br>`sensor.ventilation_system_exhaust_fan_speed` | Read-back exhaust step 0–10; 0 means stopped. Not RPM or a percentage. Unrecognized codes produce an unknown value. Source: register 11. |
+| Humidity setpoint<br>`sensor.ventilation_system_humidity_setpoint` | Read-back humidity setpoint, 1–99 %, not measured humidity. Source: register 19. |
+| Heater temperature setpoint<br>`sensor.ventilation_system_heater_temperature_setpoint` | Read-back heater temperature setpoint, 10–25 °C. Source: register 27. |
+| Filter reminder interval<br>`sensor.ventilation_system_filter_reminder_interval` | Configured filter reminder period in days (45/60/90/180), not time remaining until service. Source: register 25. |
+| Fan runtime<br>`sensor.ventilation_system_fan_runtime` | Unit fan runtime in hours, with 0.1 h resolution. Not ESP32 uptime. Source: register 769. |
 
-| Binary sensors | Meaning |
+### Raw register sensors
+
+| Entity / expected entity_id | Description |
 |---|---|
-| ESP32 connection; Vent system Online | API connection / main Modbus data status |
-| Ventilation power | Power state from register 9, not proof of fan rotation |
-| Bypass open; Bypass closed * | Bypass position; Bypass open is unknown when position bits conflict or are both unset |
-| Defrost active; Fire alarm | Defrost / unit fire input flags |
-| Ventilation error | Nonzero error mask |
-| External boost active; CO2 boost active | Boost request flags |
+| Power state raw *<br>`sensor.ventilation_system_power_state_raw` | Raw unit power: 0 off, 1 on. Source: register 9. |
+| Supply fan speed code *<br>`sensor.ventilation_system_supply_fan_speed_code` | Supply fan protocol code before conversion to step 0–10. Source: register 10. |
+| Exhaust fan speed code *<br>`sensor.ventilation_system_exhaust_fan_speed_code` | Exhaust fan protocol code before conversion to step 0–10. Source: register 11. |
+| Status flags raw *<br>`sensor.ventilation_system_status_flags_raw` | Status bitmask: bit 0 fire input, 1 bypass open, 2 bypass closed, 3 defrost. Source: register 18. |
+| Error flags raw *<br>`sensor.ventilation_system_error_flags_raw` | Raw error bitmask: 0 means no errors; multiple faults may coexist. Source: register 20. |
+| External boost signal raw *<br>`sensor.ventilation_system_external_boost_signal_raw` | Raw external boost signal: 0 inactive, 1 active. Source: register 16. |
+| CO2 boost signal raw *<br>`sensor.ventilation_system_co2_boost_signal_raw` | Raw CO₂ boost signal: 0 inactive, 1 active. Not CO₂ concentration. Source: register 17. |
+| Filter interval code *<br>`sensor.ventilation_system_filter_interval_code` | Reminder period code: 0/1/2/3 maps to 45/60/90/180 days. Source: register 25. |
 
-**Project version:** `sensor.royal_clima_project_version` reports the installed firmware project version.
+### Unit binary states
 
-**Text sensors:** `Ventilation status` and `Error description` provide Russian or English status/error text, including the original error code. Select `ru` / `en` using `Message language` in device settings (default: `en`); the choice survives reboot and takes effect within 3 seconds. Errors cover OA/RA/EA/SA sensors, EEPROM and both fans; unknown bits are also reported.
+| Entity / expected entity_id | Description |
+|---|---|
+| Vent system Online<br>`binary_sensor.ventilation_system_vent_system_online` | Main block 9–20 has been read and has not expired. Off before the first read; after 60 s without updates it turns off at the next check (up to 3 s). Does not confirm secondary group freshness or command delivery. |
+| Ventilation power<br>`binary_sensor.ventilation_system_ventilation_power` | On/off power state from the register, not proof of fan rotation. Unknown when source data expires. Source: register 9. |
+| Bypass open<br>`binary_sensor.ventilation_system_bypass_open` | On means open, off means closed. Unknown if position bits are both set/both clear, or source data is missing. Source: register 18, bits 1–2. |
+| Bypass closed *<br>`binary_sensor.ventilation_system_bypass_closed` | Auxiliary bypass-closed flag from bit 2; unknown without source data. Source: register 18, bit 2. |
+| Defrost active<br>`binary_sensor.ventilation_system_defrost_active` | On while defrost is active, off otherwise; unknown without source data. Source: register 18, bit 3. |
+| Fire alarm<br>`binary_sensor.ventilation_system_fire_alarm` | On when the unit fire input is active, off otherwise. A controller signal, not an independent smoke measurement. Source: register 18, bit 0. |
+| Ventilation error<br>`binary_sensor.ventilation_system_ventilation_error` | On for a nonzero error mask, off when no faults are reported. See Error description; unknown without source data. Source: register 20. |
+| External boost active<br>`binary_sensor.ventilation_system_external_boost_active` | On for an external high-speed boost request (register value 1), off otherwise. Source: register 16. |
+| CO2 boost active<br>`binary_sensor.ventilation_system_co2_boost_active` | On for a CO₂ boost request (register value 1), off otherwise. Not a ppm measurement. Source: register 17. |
 
-**Controls:** `Message language` selects `ru` / `en` for firmware messages. `Ventilation control` switches unit power; `Supply speed control` and `Exhaust speed control` select steps 0–10 (0 means the fan is stopped). `Humidity setpoint control` * and `Heater temperature setpoint control` * write the corresponding setpoints. The filter interval is read-only. Measured CO₂/humidity and bypass/defrost settings are not exposed.
+### Unit text states
 
-`ESP32 Reboot` restarts **only the ESP32**, not the ventilation controller.
+| Entity / expected entity_id | Description |
+|---|---|
+| Ventilation status<br>`sensor.ventilation_system_ventilation_status` | Summary of power, open bypass, defrost, fire input and unknown flags. Message language selects ru/en; recalculated every 3 s. Source: register 9, 18. |
+| Error description<br>`sensor.ventilation_system_error_description` | Register 20 error descriptions in ru/en with the original numeric code. A zero mask produces No errors; recalculated every 3 s. Source: register 20. |
+
+### Communication and ESP32 diagnostics
+
+| Entity / expected entity_id | Description |
+|---|---|
+| WiFi signal<br>`sensor.royal_clima_wifi_signal` | ESP32 Wi-Fi received signal level in dBm; updated every 60 s. |
+| Uptime<br>`sensor.royal_clima_uptime` | ESP32 time since reboot in seconds; updated every 60 s. Not ventilation unit runtime. |
+| Seconds since last data<br>`sensor.ventilation_system_seconds_since_last_data` | Seconds since the last successful read of register 9. Unknown before the first reply; other read groups do not reset it. |
+| Offline events<br>`sensor.ventilation_system_offline_events` | Offline transitions across both Modbus polling groups since ESP32 boot. Resets at reboot; not a count of every lost packet. |
+| ESP32 connection<br>`binary_sensor.royal_clima_esp32_connection` | ESP32 native API client connection, for example to HA. Not Modbus connectivity to the unit. |
+| Project version<br>`sensor.royal_clima_project_version` | Installed firmware project version from ESPHOME_PROJECT_VERSION, published every 60 s. Not the ESPHome version or an update-availability check. |
+
+### Controls and settings (not sensors)
+
+| Entity / expected entity_id | Description |
+|---|---|
+| ESP32 Reboot<br>`button.royal_clima_esp32_reboot` | Restarts only the ESP32, not the ventilation controller. |
+| Ventilation control<br>`switch.ventilation_system_ventilation_control` | Unit power command, register 9; Ventilation power is the read-back state. Source: register 9. |
+| Message language<br>`select.royal_clima_message_language` | Text status/error language: ru/en, default en. Persists across reboots and applies within 3 s. |
+| Supply speed control<br>`select.ventilation_system_supply_speed_control` | Supply step selection 0–10, register 10. Source: register 10. |
+| Exhaust speed control<br>`select.ventilation_system_exhaust_speed_control` | Exhaust step selection 0–10, register 11. Source: register 11. |
+| Humidity setpoint control *<br>`number.ventilation_system_humidity_setpoint_control` | Writes humidity setpoint 1–99 %, step 1, register 19. Source: register 19. |
+| Heater temperature setpoint control *<br>`number.ventilation_system_heater_temperature_setpoint_control` | Writes heater setpoint 10–25 °C, step 1, register 27. Source: register 27. |
+
+Registers 9–20 are polled every 15 s and expire after 60 s without updates. Registers 25, 27 and 769 are polled every 60 s and expire after 180 s. Derived numeric readings recalculate every 15 s; binary unit states are checked at intervals of up to 3 s. Missing source data invalidates dependent states; text sensors report no current data in the selected language.
+
+Register 20 fault bits: 0 OA sensor, 1 EEPROM, 2 RA sensor, 3 EA sensor, 5 SA sensor, 6 supply fan, 7 exhaust fan. Other bits are not treated as separately confirmed fault types; Error description retains the original numeric code.
+
+`sensor.royal_clima_filter_usage` and `binary_sensor.royal_clima_filter_replacement_recommended` are created by the HA package, not the current firmware. Their calculations are described below.
 
 ## Home Assistant package
 
