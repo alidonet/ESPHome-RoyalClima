@@ -212,14 +212,23 @@ script:
   - id: refresh_main_after_write
     mode: restart
     then:
-      - delay: 250ms
+      # ПВУ может временно не отвечать сразу после записи; не начинать чтение слишком рано.
+      - delay: 1s
       - component.update: royalclima_controller
       - delay: 10s
       - lambda: |-
           const char *names[] = {"Power", "Supply speed", "Exhaust speed"};
           for (int index = 0; index < 3; index++) {
             if (!id(command_waiting)[index]) continue;
-            ESP_LOGI("royalclima.command", "READBACK: %s not received within 10 s after readback request", names[index]);
+            ESP_LOGI("royalclima.command", "READBACK: %s delayed; still awaiting readback (not a write failure)", names[index]);
+          }
+      # Сохранять ожидание для позднего ответа планового опроса; не повторять запись автоматически.
+      - delay: 50s
+      - lambda: |-
+          const char *names[] = {"Power", "Supply speed", "Exhaust speed"};
+          for (int index = 0; index < 3; index++) {
+            if (!id(command_waiting)[index]) continue;
+            ESP_LOGI("royalclima.command", "READBACK: %s unconfirmed; no readback within tracking window", names[index]);
             id(command_waiting)[index] = false;
             id(command_expected)[index] = -1;
           }

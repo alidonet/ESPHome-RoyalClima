@@ -110,10 +110,6 @@ Wi-Fi-настройки хранятся на ESP32. Обычное OTA сох�
 
 Примеры целевых ID: `sensor.vent_supply_temp`, `sensor.vent_supply_speed`, `select.vent_supply_speed`, `binary_sensor.vent_power`, `switch.vent_power`, `sensor.royalclima_version`, `button.royalclima_reboot`.
 
-**Обновление существующей установки:** переименование в YAML не выполняет автоматическую миграцию реестра HA. После прошивки проверьте сущности в интеграции ESPHome: старые ID могут сохраниться либо появиться старые недоступные и новые сущности. Настройте нужные ID через интерфейс HA и обновите ссылки в карточках, автоматизациях и внешних конфигурациях. Не удаляйте старые сущности до проверки ссылок и истории. Видимое имя устройства можно менять без переименования его сущностей. Внешний репозиторий карточки в это переименование не входит; её привязки нужно проверить отдельно.
-
-Файлы в `bin/` — ранее собранные версии. Для новых названий соберите и загрузите текущий YAML.
-
 ### Показания установки
 
 | Название | Целевой ID в HA | Назначение |
@@ -193,8 +189,8 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 Для удобного управления используйте отдельный проект [Royal Clima ERV Card](https://github.com/alidonet/ha-royal-clima-card). Установка и настройка карточки описаны в её репозитории.
 Примеры отображения карточки в Home Assistant:
 
-![Пульт управления Royal Clima в Home Assistant](images/control_work.png)
+![Пульт управления Royal Clima в Home Assistant](images/control_panel.png)
 
-![Схема воздушных потоков Royal Clima в Home Assistant](images/flow_work.png)
+![Схема воздушных потоков Royal Clima в Home Assistant](images/flows_panel.png)
 
 Показания и управление также доступны в браузере по адресу ESP32. Прошивка поддерживает MQTT после настройки подключения к брокеру в YAML.

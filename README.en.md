@@ -110,10 +110,6 @@ Names below match the firmware. One ESPHome node exposes two HA devices: **Vent*
 
 Example target IDs: `sensor.vent_supply_temp`, `sensor.vent_supply_speed`, `select.vent_supply_speed`, `binary_sensor.vent_power`, `switch.vent_power`, `sensor.royalclima_version`, `button.royalclima_reboot`.
 
-**Existing installations:** YAML renaming does not automatically migrate the HA entity registry. After flashing, check the ESPHome integration: existing IDs may remain, or old unavailable entities and new entities may coexist. Set the desired IDs in the HA UI and update references in cards, automations and external configurations. Check references and history before deleting old entities. Device display names can be changed without renaming their entities. The external card repository is outside this rename; check its entity bindings separately.
-
-The files in `bin/` are older builds. Compile and flash the current YAML to use the new names.
-
 ### Ventilation readings
 
 | Name | Target HA ID | Purpose |
@@ -193,8 +189,8 @@ In Home Assistant, open **Settings → Devices & services** and add the discover
 For convenient control, use the separate [Royal Clima ERV Card](https://github.com/alidonet/ha-royal-clima-card) project. Installation and configuration instructions are available in its repository.
 Example card views in Home Assistant (Russian labels):
 
-![Royal Clima control panel in Home Assistant](images/control_work.png)
+![Royal Clima control panel in Home Assistant](images/control_panel.png)
 
-![Royal Clima airflow view in Home Assistant](images/flow_work.png)
+![Royal Clima airflow view in Home Assistant](images/flows_panel.png)
 
 Readings and controls are also available in a browser at the ESP32's address. The firmware supports MQTT after configuring the broker connection in YAML.
