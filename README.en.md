@@ -100,85 +100,91 @@ Wi-Fi credentials are stored on the ESP32. Normal OTA updates preserve them as l
 - Bypass, defrost, fire input and boost states.
 - Fan runtime and the configured filter reminder interval.
 - Read and change humidity and heater temperature setpoints.
-- Text status and error messages in Russian or English, selected through **Message language**.
+- Text status and error messages in Russian or English, selected through **Language**.
 
 Sensor boost depends on the unit's settings: **CO₂ or humidity**. Separate external boost is activated by closing the External switch input on the ventilation unit's board.
 
 ## Sensors and their purpose
 
-Names are listed as they appear in the firmware. Ventilation entities belong to **Ventilation System**; ESP32 diagnostics belong to **Royal Clima**.
+Names below match the firmware. One ESPHome node exposes two HA devices: **Vent** (the ventilation unit, `vent_` prefix) and **RoyalClima** (ESP32, `royalclima_` prefix). In HA you can rename their display names to **ERV** and **ESP** while keeping entity IDs unchanged. Entity names themselves do not repeat the device name.
+
+Example target IDs: `sensor.vent_supply_temp`, `sensor.vent_supply_speed`, `select.vent_supply_speed`, `binary_sensor.vent_power`, `switch.vent_power`, `sensor.royalclima_version`, `button.royalclima_reboot`.
+
+**Existing installations:** YAML renaming does not automatically migrate the HA entity registry. After flashing, check the ESPHome integration: existing IDs may remain, or old unavailable entities and new entities may coexist. Set the desired IDs in the HA UI and update references in cards, automations and external configurations. Check references and history before deleting old entities. Device display names can be changed without renaming their entities. The external card repository is outside this rename; check its entity bindings separately.
+
+The files in `bin/` are older builds. Compile and flash the current YAML to use the new names.
 
 ### Ventilation readings
 
-| Name | Purpose |
-|---|---|
-| Return air temperature | Temperature of air extracted from the room (RA). |
-| Outdoor air temperature | Outdoor air temperature (OA). |
-| Supply Air Temperature | Temperature of air supplied to the room (SA). |
-| Exhaust air temperature | Temperature of air discharged outside (FR). |
-| Supply fan speed | Current supply fan step, from 0 to 10; 0 means stopped. |
-| Exhaust fan speed | Current exhaust fan step, from 0 to 10; 0 means stopped. |
-| Humidity setpoint | Configured humidity, not measured room humidity. |
-| Heater temperature setpoint | Configured heater temperature. |
-| Filter reminder interval | Configured filter reminder period in days, not days remaining. |
-| Fan runtime | Fan runtime in hours. |
-| Filter usage | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown when source data is missing or stale. |
+| Name | Target HA ID | Purpose |
+|---|---|---|
+| Return temp | `sensor.vent_return_temp` | Temperature of air extracted from the room (RA). |
+| Outdoor temp | `sensor.vent_outdoor_temp` | Outdoor air temperature (OA). |
+| Supply temp | `sensor.vent_supply_temp` | Temperature of air supplied to the room (SA). |
+| Exhaust temp | `sensor.vent_exhaust_temp` | Temperature of air discharged outside (FR). |
+| Supply speed | `sensor.vent_supply_speed` | Current supply fan step, from 0 to 10; 0 means stopped. |
+| Exhaust speed | `sensor.vent_exhaust_speed` | Current exhaust fan step, from 0 to 10; 0 means stopped. |
+| Humidity target | `sensor.vent_humidity_target` | Configured humidity, not measured room humidity. |
+| Heater target | `sensor.vent_heater_target` | Configured heater temperature. |
+| Filter interval | `sensor.vent_filter_interval` | Configured filter reminder period in days, not days remaining. |
+| Runtime | `sensor.vent_runtime` | Fan runtime in hours. |
+| Filter usage | `sensor.vent_filter_usage` | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown when source data is missing or stale. |
 
 Speeds are steps, not RPM or percentages. Humidity is a setpoint, not a measurement. The filter interval is a configured period, not time remaining until maintenance.
 
 ### Ventilation states
 
-| Name | Purpose |
-|---|---|
-| Vent system Online | Up-to-date data is available from the ventilation unit. |
-| Ventilation power | The unit is on or off. |
-| Bypass open | The bypass is open or closed. |
-| Bypass closed * | An additional bypass-closed indicator. |
-| Defrost active | Defrost mode is active. |
-| Fire alarm | The unit's fire input is active. |
-| Ventilation error | The unit reports an error. |
-| External input boost active | Boost from the external input is active. |
-| Sensor boost active | Boost from the CO₂ or humidity sensor is active, depending on the unit's settings. |
-| Ventilation status | Text description of the unit's status in the selected language. |
-| Error description | Description of the unit's errors in the selected language. |
+| Name | Target HA ID | Purpose |
+|---|---|---|
+| Online | `binary_sensor.vent_online` | Up-to-date data is available from the ventilation unit. |
+| Power | `binary_sensor.vent_power` | The unit is on or off. |
+| Bypass open | `binary_sensor.vent_bypass_open` | The bypass is open or closed. |
+| Bypass closed * | `binary_sensor.vent_bypass_closed` | An additional bypass-closed indicator. |
+| Defrost | `binary_sensor.vent_defrost` | Defrost mode is active. |
+| Fire alarm | `binary_sensor.vent_fire_alarm` | The unit's fire input is active. |
+| Fault | `binary_sensor.vent_fault` | The unit reports an error. |
+| External boost | `binary_sensor.vent_external_boost` | Boost from the external input is active. |
+| Sensor boost | `binary_sensor.vent_sensor_boost` | Boost from the CO₂ or humidity sensor is active, depending on the unit's settings. |
+| Status | `sensor.vent_status` | Text description of the unit's status in the selected language. |
+| Fault details | `sensor.vent_fault_details` | Description of the unit's errors in the selected language. |
 
 ### ESP32 and communication diagnostics
 
-| Name | Purpose |
-|---|---|
-| WiFi signal | ESP32 Wi-Fi signal level. |
-| Uptime | ESP32 time since reboot, in seconds. |
-| ESP32 connection | The ESP32 is connected to Home Assistant or another ESPHome client. |
-| Project version | Installed project firmware version. |
-| Seconds since last data | Seconds since the last successful read of the unit's main data. |
-| Offline events | Number of communication failures since ESP32 startup. |
+| Name | Target HA ID | Purpose |
+|---|---|---|
+| WiFi signal | `sensor.royalclima_wifi_signal` | ESP32 Wi-Fi signal level. |
+| Uptime | `sensor.royalclima_uptime` | ESP32 time since reboot, in seconds. |
+| API connected | `binary_sensor.royalclima_api_connected` | The ESP32 is connected to Home Assistant or another ESPHome client. |
+| Version | `sensor.royalclima_version` | Installed project firmware version. |
+| Data age | `sensor.vent_data_age` | Seconds since the last successful read of the unit's main data. |
+| Offline count | `sensor.vent_offline_count` | Number of communication failures since ESP32 startup. |
 
 ### Additional diagnostic sensors
 
-These values are intended for diagnostics and are usually hidden. An asterisk (*) marks entities disabled by default; enable them in the ESPHome integration settings if needed.
+Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor boost raw and Filter code are firmware-only (`internal: true`) and are not HA entities. Fault bits is exported but disabled by default. An asterisk (*) in the tables marks exported entities disabled by default; enable them in the ESPHome integration settings when needed.
 
-| Name | Purpose |
-|---|---|
-| Power state raw * | Raw unit power state. |
-| Supply fan speed code * | Raw supply fan speed code. |
-| Exhaust fan speed code * | Raw exhaust fan speed code. |
-| Status flags raw * | Raw unit status flags. |
-| Error flags raw * | Raw unit error code. |
-| External input boost signal raw * | Raw boost signal from the external input. |
-| Sensor boost signal raw * | Raw boost signal from the CO₂ or humidity sensor. |
-| Filter interval code * | Raw code for the configured filter reminder period. |
+| Name | Target HA ID | Purpose |
+|---|---|---|
+| Power raw | — (`internal`) | Raw unit power state. |
+| Supply code | — (`internal`) | Raw supply fan speed code. |
+| Exhaust code | — (`internal`) | Raw exhaust fan speed code. |
+| Status bits | — (`internal`) | Raw unit status flags. |
+| Fault bits * | `sensor.vent_fault_bits` | Raw unit error code. |
+| External boost raw | — (`internal`) | Raw boost signal from the external input. |
+| Sensor boost raw | — (`internal`) | Raw boost signal from the CO₂ or humidity sensor. |
+| Filter code | — (`internal`) | Raw code for the configured filter reminder period. |
 
 ### Controls and settings
 
-| Name | Purpose |
-|---|---|
-| Ventilation control | Turn the unit on and off. |
-| Supply speed control | Select the supply fan step: 0–10. |
-| Exhaust speed control | Select the exhaust fan step: 0–10. |
-| Humidity setpoint control * | Change the humidity setpoint: 1–99 %. |
-| Heater temperature setpoint control * | Change the heater temperature setpoint: 10–25 °C. |
-| Message language | Message language: ru for Russian, en for English. Defaults to en; the selection is saved. |
-| ESP32 Reboot | Restart only the ESP32, without restarting the ventilation controller. |
+| Name | Target HA ID | Purpose |
+|---|---|---|
+| Power | `switch.vent_power` | Turn the unit on and off. |
+| Supply speed | `select.vent_supply_speed` | Select the supply fan step: 0–10. |
+| Exhaust speed | `select.vent_exhaust_speed` | Select the exhaust fan step: 0–10. |
+| Humidity target * | `number.vent_humidity_target` | Change the humidity setpoint: 1–99 %. |
+| Heater target * | `number.vent_heater_target` | Change the heater temperature setpoint: 10–25 °C. |
+| Language | `select.royalclima_language` | Message language: ru for Russian, en for English. Defaults to en; the selection is saved. |
+| Reboot | `button.royalclima_reboot` | Restart only the ESP32, without restarting the ventilation controller. |
 
 ## Connecting to Home Assistant
 

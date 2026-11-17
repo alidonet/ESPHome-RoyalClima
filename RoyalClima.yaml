@@ -38,14 +38,14 @@ globals:
     initial_value: '{false, false, false}'
 esphome:
   name: ${name}
-  friendly_name: Royal Clima
+  friendly_name: RoyalClima
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.7.261117
+    version: 0.8.261118
   devices:
     - id: device_vent
-      name: "Ventilation System"
+      name: "Vent"
 
 esp32:
   board: esp32dev
@@ -123,6 +123,15 @@ modbus_controller:
     on_command_sent:
       then:
         - lambda: |-
+            if (function_code == 3) {
+              for (int index = 0; index < 3; index++) {
+                if (!id(command_waiting)[index]) continue;
+                ESP_LOGI("royalclima.command", "TX read FC03: device=%u register=%d (awaiting command readback)",
+                         ${modbus_address}, address);
+                break;
+              }
+              return;
+            }
             if (function_code != 6) return;
             ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
                      ${modbus_address}, address);
@@ -136,6 +145,9 @@ modbus_controller:
             }
     on_offline: 
       then:
+        - lambda: |-
+            ESP_LOGI("royalclima.command", "NO RESPONSE: group=main FC=%02X register=%d; retries exhausted",
+                     unsigned(function_code), address);
         - script.execute: report_modbus_failure
 
   # Same physical device and bus; only secondary reads use the slower schedule.
@@ -154,6 +166,9 @@ modbus_controller:
                      ${modbus_address}, address);
     on_offline:
       then:
+        - lambda: |-
+            ESP_LOGI("royalclima.command", "NO RESPONSE: group=slow FC=%02X register=%d; retries exhausted",
+                     unsigned(function_code), address);
         - script.execute: report_modbus_failure
 
 script:
@@ -233,9 +248,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: power_raw
-    # Регистр 9 (RW): исходное состояние установки, 0 — выключена, 1 — включена. Отключён по умолчанию.
-    name: "Power state raw"
-    disabled_by_default: true
+    # Регистр 9 (RW): исходное состояние установки, 0 — выключена, 1 — включена. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "Power raw"
+    internal: true
     entity_category: diagnostic
     address: 9
     register_type: holding
@@ -270,9 +285,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: supply_raw
-    # Регистр 10 (RW): исходный код скорости приточного вентилятора. Отключён по умолчанию.
-    name: "Supply fan speed code"
-    disabled_by_default: true
+    # Регистр 10 (RW): исходный код скорости приточного вентилятора. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "Supply code"
+    internal: true
     entity_category: diagnostic
     address: 10
     register_type: holding
@@ -291,9 +306,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: exhaust_raw
-    # Регистр 11 (RW): исходный код скорости вытяжного вентилятора. Отключён по умолчанию.
-    name: "Exhaust fan speed code"
-    disabled_by_default: true
+    # Регистр 11 (RW): исходный код скорости вытяжного вентилятора. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "Exhaust code"
+    internal: true
     entity_category: diagnostic
     address: 11
     register_type: holding
@@ -311,7 +326,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     # Регистр 12 (R): температура комнатного/возвратного воздуха RA, °C; исходное значение минус 40.
-    name: "Return air temperature"
+    name: "Return temp"
     address: 12
     register_type: holding
     value_type: U_WORD
@@ -327,7 +342,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     # Регистр 13 (R): температура наружного воздуха OA, °C; исходное значение минус 40.
-    name: "Outdoor air temperature"
+    name: "Outdoor temp"
     address: 13
     register_type: holding
     value_type: U_WORD
@@ -342,9 +357,8 @@ sensor:
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
-    # DC (Primo) protocol: supply air temperature; keep the existing entity name.
     # Регистр 14 (R): температура приточного воздуха SA, °C; исходное значение минус 40.
-    name: "Supply Air Temperature"
+    name: "Supply temp"
     address: 14
     register_type: holding
     value_type: U_WORD
@@ -360,7 +374,7 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     # Регистр 15 (R): температура выбрасываемого воздуха FR, °C; исходное значение минус 40.
-    name: "Exhaust air temperature"
+    name: "Exhaust temp"
     address: 15
     register_type: holding
     value_type: U_WORD
@@ -376,9 +390,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: status_raw
-    # Регистр 18 (R): битовая маска пожарного сигнала, положения байпаса и разморозки. Отключён по умолчанию.
-    name: "Status flags raw"
-    disabled_by_default: true
+    # Регистр 18 (R): битовая маска пожарного сигнала, положения байпаса и разморозки. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "Status bits"
+    internal: true
     address: 18
     register_type: holding
     value_type: U_WORD
@@ -393,7 +407,7 @@ sensor:
     modbus_controller_id: royalclima_controller
     id: error_raw
     # Регистр 20 (R): битовая маска ошибок по DC-протоколу. Отключён по умолчанию.
-    name: "Error flags raw"
+    name: "Fault bits"
     disabled_by_default: true
     address: 20
     register_type: holding
@@ -420,7 +434,7 @@ sensor:
 
   - platform: template
     # Время с последнего успешного чтения регистра 9, секунды; не относится к ответам других групп.
-    name: "Seconds since last data"
+    name: "Data age"
     icon: mdi:timer-outline
     device_id: device_vent
     unit_of_measurement: s
@@ -433,7 +447,7 @@ sensor:
 
   - platform: template
     # Число переходов обеих групп опроса в offline с последней перезагрузки ESP32.
-    name: "Offline events"
+    name: "Offline count"
     icon: mdi:counter
     device_id: device_vent
     accuracy_decimals: 0
@@ -444,7 +458,7 @@ sensor:
   - platform: template
     # Ступень скорости приточного вентилятора, 0–10, вычисленная из регистра 10; не измеренные обороты.
     id: supply_fan_speed
-    name: "Supply fan speed"
+    name: "Supply speed"
     icon: mdi:fan-chevron-down
     device_id: device_vent
     accuracy_decimals: 0
@@ -460,7 +474,7 @@ sensor:
   - platform: template
     # Ступень скорости вытяжного вентилятора, 0–10, вычисленная из регистра 11; не измеренные обороты.
     id: exhaust_fan_speed
-    name: "Exhaust fan speed"
+    name: "Exhaust speed"
     icon: mdi:fan-chevron-up
     device_id: device_vent
     accuracy_decimals: 0
@@ -477,9 +491,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: external_input_boost_signal_raw
-    # Регистр 16 (R): сигнал форсирования по внешнему входу, 0 — неактивен, 1 — активен. Отключён по умолчанию.
-    name: "External input boost signal raw"
-    disabled_by_default: true
+    # Регистр 16 (R): сигнал форсирования по внешнему входу, 0 — неактивен, 1 — активен. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "External boost raw"
+    internal: true
     address: 16
     register_type: holding
     value_type: U_WORD
@@ -492,9 +506,9 @@ sensor:
     modbus_controller_id: royalclima_controller
     id: sensor_boost_signal_raw
     # Регистр 17 (R): сигнал форсирования по датчику CO2 или влажности, в зависимости от настроек ПВУ.
-    # 0 — неактивен, 1 — активен. В протоколе обозначен CO2; отключён по умолчанию.
-    name: "Sensor boost signal raw"
-    disabled_by_default: true
+    # 0 — неактивен, 1 — активен. В протоколе обозначен CO2; используется только внутри прошивки.
+    name: "Sensor boost raw"
+    internal: true
     address: 17
     register_type: holding
     value_type: U_WORD
@@ -507,7 +521,7 @@ sensor:
     modbus_controller_id: royalclima_controller
     id: humidity_setpoint
     # Регистр 19 (RW): заданная относительная влажность, 1–99 %; не текущее измерение.
-    name: "Humidity setpoint"
+    name: "Humidity target"
     icon: mdi:water-percent
     address: 19
     register_type: holding
@@ -520,9 +534,9 @@ sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_slow_controller
     id: filter_interval_code
-    # Регистр 25 (R): код интервала напоминания о фильтре, 0/1/2/3 — 45/60/90/180 дней. Отключён по умолчанию.
-    name: "Filter interval code"
-    disabled_by_default: true
+    # Регистр 25 (R): код интервала напоминания о фильтре, 0/1/2/3 — 45/60/90/180 дней. Внутренний: нужен для вычислений, в HA не экспортируется.
+    name: "Filter code"
+    internal: true
     address: 25
     register_type: holding
     value_type: U_WORD
@@ -535,7 +549,7 @@ sensor:
     modbus_controller_id: royalclima_slow_controller
     id: heater_setpoint
     # Регистр 27 (RW): заданная температура включения/выключения нагревателя, 10–25 °C.
-    name: "Heater temperature setpoint"
+    name: "Heater target"
     icon: mdi:thermometer
     address: 27
     register_type: holding
@@ -548,7 +562,7 @@ sensor:
   - platform: template
     # Настроенный интервал напоминания о фильтре в днях; не оставшееся время до обслуживания.
     id: filter_reminder_interval
-    name: "Filter reminder interval"
+    name: "Filter interval"
     icon: mdi:air-filter
     device_id: device_vent
     unit_of_measurement: d
@@ -565,7 +579,7 @@ sensor:
     modbus_controller_id: royalclima_slow_controller
     id: fan_runtime
     # Регистр 769 (R): наработка вентилятора, единица регистра — 0,1 часа.
-    name: "Fan runtime"
+    name: "Runtime"
     icon: mdi:timer-outline
     address: 769
     register_type: holding
@@ -598,7 +612,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     # Регистр 19 (RW): уставка влажности 1–99 %, если используется датчик влажности.
-    name: "Humidity setpoint control"
+    name: "Humidity target"
     device_id: device_vent
     icon: mdi:water-percent
     entity_category: config
@@ -617,7 +631,7 @@ number:
   - platform: modbus_controller
     modbus_controller_id: royalclima_slow_controller
     # Регистр 27 (RW): уставка нагревателя 10–25 °C; назначение выхода проверить на установке.
-    name: "Heater temperature setpoint control"
+    name: "Heater target"
     device_id: device_vent
     icon: mdi:thermometer
     entity_category: config
@@ -637,13 +651,13 @@ number:
 binary_sensor:
   - platform: status
     # Состояние подключения ESP32 к клиенту native API, например Home Assistant.
-    name: "ESP32 connection"
+    name: "API connected"
     entity_category: diagnostic
 
   - platform: template
     # Основной блок 9–20 получен и не протух (stale_timeout); короткие сбои не гасят панель HA.
     # Не гарантирует свежесть отдельно читаемых 25, 27 и 769 или доставку команды управления.
-    name: "Vent system Online"
+    name: "Online"
     device_id: device_vent
     device_class: connectivity
     lambda: |-
@@ -657,7 +671,7 @@ binary_sensor:
   - platform: template
     id: ventilation_power
     # Установка включена/выключена по регистру 9; не подтверждение вращения вентиляторов.
-    name: "Ventilation power"
+    name: "Power"
     icon: mdi:power
     device_class: running
     device_id: device_vent
@@ -705,7 +719,7 @@ binary_sensor:
   - platform: template
     id: defrost_active
     # Активна разморозка по биту 3 регистра 18.
-    name: "Defrost active"
+    name: "Defrost"
     icon: mdi:snowflake-melt
     device_class: running
     device_id: device_vent
@@ -740,7 +754,7 @@ binary_sensor:
   - platform: template
     id: ventilation_error
     # Есть ошибка: ненулевая маска регистра 20; выключен — ошибок нет.
-    name: "Ventilation error"
+    name: "Fault"
     device_class: problem
     entity_category: diagnostic
     device_id: device_vent
@@ -758,7 +772,7 @@ binary_sensor:
   - platform: template
     id: external_input_boost_active
     # Активно форсирование по внешнему входу по регистру 16.
-    name: "External input boost active"
+    name: "External boost"
     icon: mdi:fan-plus
     device_class: running
     device_id: device_vent
@@ -778,7 +792,7 @@ binary_sensor:
     # Форсирование по датчику CO2 или влажности выбирается на самой ПВУ (SW4-3).
     # Регистр 17 — признак активности, не измеренная концентрация или влажность.
     # В протоколе регистр назван CO2; поведение в режиме влажности пока не проверено.
-    name: "Sensor boost active"
+    name: "Sensor boost"
     icon: mdi:fan-auto
     device_class: running
     device_id: device_vent
@@ -797,7 +811,7 @@ binary_sensor:
 text_sensor:
   - platform: template
     # Версия проекта в установленной прошивке.
-    name: "Project version"
+    name: "Version"
     icon: mdi:tag-outline
     entity_category: diagnostic
     update_interval: 60s
@@ -805,7 +819,7 @@ text_sensor:
   - platform: template
     # Описание работы установки на выбранном языке ru/en.
     id: ventilation_status
-    name: "Ventilation status"
+    name: "Status"
     icon: mdi:air-filter
     device_id: device_vent
     update_interval: 3s
@@ -830,7 +844,7 @@ text_sensor:
 
   - platform: template
     # Расшифровка битов ошибок регистра 20 на выбранном языке с числовым кодом.
-    name: "Error description"
+    name: "Fault details"
     icon: mdi:alert-octagon-outline
     device_id: device_vent
     entity_category: diagnostic
@@ -870,7 +884,7 @@ text_sensor:
 button:
   - platform: restart
     # Удалённая перезагрузка ESP32 с ESPHome; плата рекуператора не перезапускается.
-    name: "ESP32 Reboot"
+    name: "Reboot"
     id: esp32_reboot
     icon: mdi:restart
     entity_category: diagnostic
@@ -878,7 +892,7 @@ switch:
   - platform: template
     id: ventilation_control
     # Публикуется только прочитанное питание регистра 9 (RW); команды не меняют состояние заранее.
-    name: "Ventilation control"
+    name: "Power"
     device_id: device_vent
     icon: mdi:power
     optimistic: false
@@ -907,7 +921,7 @@ select:
   - platform: template
     id: message_language
     # Язык текстовых статусов и ошибок; сохраняется после перезагрузки, обновление в течение 3 с.
-    name: "Message language"
+    name: "Language"
     icon: mdi:translate
     entity_category: config
     options:
@@ -920,7 +934,7 @@ select:
     modbus_controller_id: royalclima_controller
     id: supply_speed_control
     # Регистр 10 (RW): выбор ступени вентилятора; код протокола преобразуется в понятную скорость.
-    name: "Supply speed control"
+    name: "Supply speed"
     device_id: device_vent
     icon: mdi:fan-chevron-down
     address: 10
@@ -949,7 +963,7 @@ select:
     modbus_controller_id: royalclima_controller
     id: exhaust_speed_control
     # Регистр 11 (RW): выбор ступени вентилятора; код протокола преобразуется в понятную скорость.
-    name: "Exhaust speed control"
+    name: "Exhaust speed"
     device_id: device_vent
     icon: mdi:fan-chevron-up
     address: 11
