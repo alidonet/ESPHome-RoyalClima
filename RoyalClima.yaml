@@ -11,7 +11,7 @@ substitutions:
   modbus_address: "1"  # Controller parameter 08.
   refresh_interval: 15s
   slow_refresh_interval: 60s
-  response_timeout: 1500ms
+  response_timeout: 1200ms
   stale_timeout: 60s  # Keep the last reading for one minute without updates.
   slow_stale_timeout: 180s  # Allow missed polls of the secondary registers.
 
@@ -25,14 +25,24 @@ globals:
   - id: offline_count
     type: uint32_t
     initial_value: '0'
-  
+
+  # Для трёх команд 9–11: ожидаемый код, время последней передачи и ожидание чтения.
+  - id: command_expected
+    type: std::array<int, 3>
+    initial_value: '{-1, -1, -1}'
+  - id: command_sent_ms
+    type: std::array<uint32_t, 3>
+    initial_value: '{0, 0, 0}'
+  - id: command_waiting
+    type: std::array<bool, 3>
+    initial_value: '{false, false, false}'
 esphome:
   name: ${name}
   friendly_name: Royal Clima
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.6.261117
+    version: 0.7.261117
   devices:
     - id: device_vent
       name: "Ventilation System"
@@ -67,11 +77,13 @@ ota:
   - platform: esphome
 
 logger:
-  level: WARN
+  level: INFO
+  initial_level: WARN
   # Summarize missing replies below instead of logging every retry/online transition.
   logs:
     modbus: ERROR
     modbus_controller: ERROR
+    royalclima.command: INFO
 
 web_server:
   local: true
@@ -98,7 +110,7 @@ modbus:
   id: royalclima_modbus
   uart_id: royalclima_uart
   send_wait_time: ${response_timeout}
-  turnaround_time: 600ms
+  turnaround_time: 500ms
 
 modbus_controller:
   - id: royalclima_controller
@@ -107,6 +119,21 @@ modbus_controller:
     update_interval: ${refresh_interval}
     max_cmd_retries: 1
     offline_skip_updates: 0
+    # Фактическая передача FC06, включая повторы; чтение ставится в очередь после записи.
+    on_command_sent:
+      then:
+        - lambda: |-
+            if (function_code != 6) return;
+            ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
+                     ${modbus_address}, address);
+            if (address >= 9 && address <= 11) {
+              const int index = address - 9;
+              if (id(command_expected)[index] >= 0) {
+                id(command_sent_ms)[index] = millis();
+                id(command_waiting)[index] = true;
+              }
+              id(refresh_main_after_write).execute();
+            }
     on_offline: 
       then:
         - script.execute: report_modbus_failure
@@ -118,11 +145,69 @@ modbus_controller:
     update_interval: ${slow_refresh_interval}
     max_cmd_retries: 1
     offline_skip_updates: 0
+    # Только лог передачи FC06; уставки остаются на плановом опросе.
+    on_command_sent:
+      then:
+        - lambda: |-
+            if (function_code != 6) return;
+            ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
+                     ${modbus_address}, address);
     on_offline:
       then:
         - script.execute: report_modbus_failure
 
 script:
+  - id: refresh_ventilation_status
+    mode: restart
+    then:
+      - delay: 10ms
+      - component.update: ventilation_status
+  - id: log_command_readback
+    parameters:
+      register_address: int
+      raw_value: int
+    then:
+      - lambda: |-
+          const int index = register_address - 9;
+          if (index < 0 || index > 2 || !id(command_waiting)[index]) return;
+          const int expected = id(command_expected)[index];
+          const auto elapsed = uint32_t(millis() - id(command_sent_ms)[index]);
+          if (index == 0) {
+            ESP_LOGI("royalclima.command", "READBACK: Power %s; requested %s; %s (%lu ms after TX)",
+                     raw_value ? "ON" : "OFF", expected ? "ON" : "OFF",
+                     raw_value == expected ? "confirmed" : "not confirmed",
+                     static_cast<unsigned long>(elapsed));
+          } else {
+            const int codes[] = {0, 2, 3, 5, 8, 9, 10, 11, 12, 13, 14};
+            int actual_step = -1;
+            int expected_step = -1;
+            for (int step = 0; step <= 10; step++) {
+              if (raw_value == codes[step]) actual_step = step;
+              if (expected == codes[step]) expected_step = step;
+            }
+            ESP_LOGI("royalclima.command", "READBACK: %s speed %d (code %d); requested %d; %s (%lu ms after TX)",
+                     index == 1 ? "Supply" : "Exhaust", actual_step, raw_value, expected_step,
+                     raw_value == expected ? "confirmed" : "not confirmed",
+                     static_cast<unsigned long>(elapsed));
+          }
+          // Первый результат чтения, а не гарантия, что ПВУ уже закончила применять команду.
+          id(command_waiting)[index] = false;
+          id(command_expected)[index] = -1;
+  # Неблокирующая пауза даёт ПВУ время применить команду; шина сама ждёт ответа/таймаута записи.
+  - id: refresh_main_after_write
+    mode: restart
+    then:
+      - delay: 250ms
+      - component.update: royalclima_controller
+      - delay: 10s
+      - lambda: |-
+          const char *names[] = {"Power", "Supply speed", "Exhaust speed"};
+          for (int index = 0; index < 3; index++) {
+            if (!id(command_waiting)[index]) continue;
+            ESP_LOGI("royalclima.command", "READBACK: %s not received within 10 s after readback request", names[index]);
+            id(command_waiting)[index] = false;
+            id(command_expected)[index] = -1;
+          }
   - id: report_modbus_failure
     then:
       # A failed command must not invalidate a still-fresh main block.
@@ -161,6 +246,16 @@ sensor:
       - timeout: ${stale_timeout}
     on_value:
       then:
+        # Состояние питания публикуется сразу по чтению, без дополнительного таймера.
+        - lambda: |-
+            if (isnan(x)) {
+              id(ventilation_power).invalidate_state();
+              return;
+            }
+            id(ventilation_power).publish_state(x != 0);
+            id(ventilation_control).publish_state(x != 0);
+            id(log_command_readback).execute(9, static_cast<int>(x));
+        - script.execute: refresh_ventilation_status
         - if:
             condition:
               lambda: 'return !isnan(x);'
@@ -187,6 +282,11 @@ sensor:
     device_id: device_vent
     filters:
       - timeout: ${stale_timeout}
+    on_value:
+      then:
+        - component.update: supply_fan_speed
+        - lambda: |-
+            if (!isnan(x)) id(log_command_readback).execute(10, static_cast<int>(x));
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -202,6 +302,11 @@ sensor:
     device_id: device_vent
     filters:
       - timeout: ${stale_timeout}
+    on_value:
+      then:
+        - component.update: exhaust_fan_speed
+        - lambda: |-
+            if (!isnan(x)) id(log_command_readback).execute(11, static_cast<int>(x));
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -338,11 +443,12 @@ sensor:
     lambda: return id(offline_count);
   - platform: template
     # Ступень скорости приточного вентилятора, 0–10, вычисленная из регистра 10; не измеренные обороты.
+    id: supply_fan_speed
     name: "Supply fan speed"
     icon: mdi:fan-chevron-down
     device_id: device_vent
     accuracy_decimals: 0
-    update_interval: ${refresh_interval}
+    update_interval: never
     lambda: |-
       const float raw = id(supply_raw).state;
       if (isnan(raw)) return NAN;
@@ -353,11 +459,12 @@ sensor:
       return NAN;
   - platform: template
     # Ступень скорости вытяжного вентилятора, 0–10, вычисленная из регистра 11; не измеренные обороты.
+    id: exhaust_fan_speed
     name: "Exhaust fan speed"
     icon: mdi:fan-chevron-up
     device_id: device_vent
     accuracy_decimals: 0
-    update_interval: ${refresh_interval}
+    update_interval: never
     lambda: |-
       const float raw = id(exhaust_raw).state;
       if (isnan(raw)) return NAN;
@@ -503,6 +610,10 @@ number:
     max_value: 99
     step: 1
     use_write_multiple: false
+    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
+    write_lambda: |-
+      ESP_LOGI("royalclima.command", "REQUEST: Set humidity setpoint to %.0f %% (FC06 register=19)", x);
+      return x;
   - platform: modbus_controller
     modbus_controller_id: royalclima_slow_controller
     # Регистр 27 (RW): уставка нагревателя 10–25 °C; назначение выхода проверить на установке.
@@ -518,6 +629,10 @@ number:
     max_value: 25
     step: 1
     use_write_multiple: false
+    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
+    write_lambda: |-
+      ESP_LOGI("royalclima.command", "REQUEST: Set heater temperature setpoint to %.0f C (FC06 register=27)", x);
+      return x;
 
 binary_sensor:
   - platform: status
@@ -546,17 +661,6 @@ binary_sensor:
     icon: mdi:power
     device_class: running
     device_id: device_vent
-    lambda: |-
-      static uint32_t last_check = 0;
-      const uint32_t now = millis();
-      if (uint32_t(now - last_check) < 3000) return {};
-      last_check = now;
-      const float raw = id(power_raw).state;
-      if (isnan(raw)) {
-        id(ventilation_power).invalidate_state();
-        return {};
-      }
-      return raw != 0;
   - platform: template
     id: bypass_open
     # Положение байпаса по битам 1 и 2 регистра 18: открыт/закрыт; обе одинаковые отметки — неизвестно.
@@ -700,6 +804,7 @@ text_sensor:
     lambda: return {ESPHOME_PROJECT_VERSION};
   - platform: template
     # Описание работы установки на выбранном языке ru/en.
+    id: ventilation_status
     name: "Ventilation status"
     icon: mdi:air-filter
     device_id: device_vent
@@ -770,18 +875,33 @@ button:
     icon: mdi:restart
     entity_category: diagnostic
 switch:
-  - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
+  - platform: template
     id: ventilation_control
-    # Регистр 9 (RW): включение/выключение установки; без восстановления команды при запуске ESP32.
+    # Публикуется только прочитанное питание регистра 9 (RW); команды не меняют состояние заранее.
     name: "Ventilation control"
     device_id: device_vent
     icon: mdi:power
+    optimistic: false
+    restore_mode: DISABLED
+    turn_on_action:
+      - switch.turn_on: ventilation_power_writer
+    turn_off_action:
+      - switch.turn_off: ventilation_power_writer
+  - platform: modbus_controller
+    modbus_controller_id: royalclima_controller
+    id: ventilation_power_writer
+    # Внутренний исполнитель FC06 для регистра 9 (RW), не создаёт сущность в HA.
+    internal: true
     register_type: holding
     address: 9
     bitmask: 1
     use_write_multiple: false
     restore_mode: DISABLED
+    write_lambda: |-
+      ESP_LOGI("royalclima.command", "REQUEST: Turn power %s (FC06 register=9 value=%u)", x ? "ON" : "OFF", unsigned(x));
+      id(command_expected)[0] = x ? 1 : 0;
+      id(command_waiting)[0] = false;
+      return x;
 
 select:
   - platform: template
@@ -807,6 +927,12 @@ select:
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
+    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
+    write_lambda: |-
+      ESP_LOGI("royalclima.command", "REQUEST: Set supply speed to %s (FC06 register=10 value=%lld)", x.c_str(), static_cast<long long>(value));
+      id(command_expected)[1] = static_cast<int>(value);
+      id(command_waiting)[1] = false;
+      return value;
     optionsmap:
       "0": 0
       "1": 2
@@ -830,6 +956,12 @@ select:
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
+    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
+    write_lambda: |-
+      ESP_LOGI("royalclima.command", "REQUEST: Set exhaust speed to %s (FC06 register=11 value=%lld)", x.c_str(), static_cast<long long>(value));
+      id(command_expected)[2] = static_cast<int>(value);
+      id(command_waiting)[2] = false;
+      return value;
     optionsmap:
       "0": 0
       "1": 2
