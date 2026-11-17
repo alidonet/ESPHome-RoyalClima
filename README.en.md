@@ -122,6 +122,7 @@ Names are listed as they appear in the firmware. Ventilation entities belong to 
 | Heater temperature setpoint | Configured heater temperature. |
 | Filter reminder interval | Configured filter reminder period in days, not days remaining. |
 | Fan runtime | Fan runtime in hours. |
+| Filter usage | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown when source data is missing or stale. |
 
 Speeds are steps, not RPM or percentages. Humidity is a setpoint, not a measurement. The filter interval is a configured period, not time remaining until maintenance.
 

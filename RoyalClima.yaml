@@ -32,7 +32,7 @@ esphome:
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.6.261116
+    version: 0.6.261117
   devices:
     - id: device_vent
       name: "Ventilation System"
@@ -440,6 +440,7 @@ sensor:
       - timeout: ${slow_stale_timeout}
   - platform: template
     # Настроенный интервал напоминания о фильтре в днях; не оставшееся время до обслуживания.
+    id: filter_reminder_interval
     name: "Filter reminder interval"
     icon: mdi:air-filter
     device_id: device_vent
@@ -468,6 +469,23 @@ sensor:
     filters:
       - multiply: 0.1
       - timeout: ${slow_stale_timeout}
+
+  - platform: template
+    id: filter_usage
+    # Доля наработки регистра 769 (R) от интервала регистра 25 (R); может превышать 100 %.
+    name: "Filter usage"
+    icon: mdi:air-filter
+    device_id: device_vent
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    state_class: measurement
+    update_interval: ${refresh_interval}
+    lambda: |-
+      const float hours = id(fan_runtime).state;
+      const float days = id(filter_reminder_interval).state;
+      if (!std::isfinite(hours) || !std::isfinite(days) || hours < 0 || days <= 0 ||
+          !std::isfinite(id(filter_interval_code).state)) return NAN;
+      return hours / (days * 24.0f) * 100.0f;
 
 number:
   - platform: modbus_controller
