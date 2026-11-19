@@ -3,7 +3,7 @@
   <img src="images/esp32.jpg" width="120" alt="ESP32">
 </p>
 
-[Русский](readme.md)
+[Русский](README.ru.md)
 
 # ESPHome for Royal Clima
 
