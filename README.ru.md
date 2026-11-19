@@ -1,14 +1,14 @@
 # ESPHome для Royal Clima
 
-[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&query=%24.esphome.min_version&label=ESPHome&suffix=%2B&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Total downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
+[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&search=%5E%5B%20%5Ct%5D%2Bmin_version%3A%5B%20%5Ct%5D*%5B%22%27%5D%3F%28%5B0-9%5D%2B%5C.%5B0-9%5D%2B%5C.%5B0-9%5D%2B%29%5B%22%27%5D%3F%5B%20%5Ct%5D*%28%3F%3A%23%5B%5E%5Cr%5Cn%5D*%29%3F%5Cr%3F%24&replace=%241%2B&flags=m&label=ESPHome&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Total downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
 
 [English](README.md)
 
 Прошивка для подключения рекуператора **Royal Clima SOFFIO Primo** к ESP32. Позволяет управлять вентиляцией и получать показания через Home Assistant или браузер.
 
 <p align="center">
-  <img src="images/royalclima.png" width="380" alt="Royal Clima">
-  &nbsp;<img src="images/esp32.jpg" width="120" alt="ESP32">
+  <img src="images/royalclima.png" width="380" alt="Royal Clima"> 
+  &nbsp; <img src="images/esp32.jpg" width="120" alt="ESP32">
 </p>
 
 Серия включает **RCS-250-P, RCS-350-P, RCS-500-P и RCS-650-P**. Работа проверена на **RCS-650-P**. Возможна совместимость с **Holtop XHBQ**, но она не проверена.
@@ -212,8 +212,13 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 Для удобного управления используйте отдельный проект [Royal Clima ERV Card](https://github.com/alidonet/ha-royal-clima-card). Установка и настройка карточки описаны в её репозитории.
 Примеры отображения карточки в Home Assistant:
 
-![Пульт управления Royal Clima в Home Assistant](images/control_panel.png)
-
+![Пульт управления Royal Clima в Home Assistant](images/control_panel.png) 
 ![Схема воздушных потоков Royal Clima в Home Assistant](images/flows_panel.png)
 
 Показания и управление также доступны в браузере по адресу ESP32. MQTT настраивается штатными настроечными сущностями ESPHome в веб-интерфейсе.
+
+## Статус проекта
+
+ESPHome-RoyalClima — независимый неофициальный проект прошивки ESPHome для совместимых вентиляционных установок Royal Clima.
+
+Логотип Royal Clima выше обозначает производителя оборудования. Права на логотип принадлежат его правообладателю.
