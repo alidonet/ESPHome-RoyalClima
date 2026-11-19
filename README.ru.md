@@ -7,6 +7,8 @@
 
 # ESPHome для Royal Clima
 
+[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&query=%24.esphome.min_version&label=ESPHome&suffix=%2B&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Factory and OTA firmware](https://img.shields.io/badge/Downloads-Factory_%2B_OTA-1976d2)](bin/) [![Total release downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
+
 Прошивка для подключения рекуператора **Royal Clima SOFFIO Primo** к ESP32. Позволяет управлять вентиляцией и получать показания через Home Assistant или браузер.
 
 Серия включает **RCS-250-P, RCS-350-P, RCS-500-P и RCS-650-P**. Работа проверена на **RCS-650-P**. Возможна совместимость с **Holtop XHBQ**, но она не проверена.

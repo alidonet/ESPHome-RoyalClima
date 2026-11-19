@@ -7,6 +7,8 @@
 
 # ESPHome for Royal Clima
 
+[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&query=%24.esphome.min_version&label=ESPHome&suffix=%2B&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Factory and OTA firmware](https://img.shields.io/badge/Downloads-Factory_%2B_OTA-1976d2)](bin/) [![Total release downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
+
 Firmware for connecting a **Royal Clima SOFFIO Primo** heat recovery ventilation unit to an ESP32. Control ventilation and view readings through Home Assistant or a web browser.
 
 The series includes **RCS-250-P, RCS-350-P, RCS-500-P and RCS-650-P**. Tested on **RCS-650-P**. Compatibility with **Holtop XHBQ** units is possible but has not been tested.
