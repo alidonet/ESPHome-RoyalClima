@@ -92,6 +92,8 @@ For subsequent Wi-Fi updates, use **ota.bin** through ESPHome.
 
 Wi-Fi credentials are stored on the ESP32. Normal OTA updates preserve them as long as the YAML does not specify an SSID and password. Erasing flash or performing a factory reset clears the settings; USB flashing that erases flash requires provisioning again. If the saved network is unavailable, the device returns to setup mode (fallback AP timeout: 30 seconds). See [ESPHome Wi-Fi credential persistence](https://esphome.io/components/wifi/#saving-wifi-credentials).
 
+Requires **ESPHome 2026.11.0 or newer**. The ventilation unit is declared as a separate Modbus device with `relation: via`.
+
 ## Features
 
 - Turn ventilation on and off.
@@ -124,7 +126,9 @@ Example target IDs: `sensor.vent_supply_temp`, `sensor.vent_supply_speed`, `sele
 | Heater target | `sensor.vent_heater_target` | Configured heater temperature. |
 | Filter interval | `sensor.vent_filter_interval` | Configured filter reminder period in days, not days remaining. |
 | Runtime | `sensor.vent_runtime` | Fan runtime in hours. |
-| Filter usage | `sensor.vent_filter_usage` | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown when source data is missing or stale. |
+| Filter usage | `sensor.vent_filter_usage` | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown until the source data is first received. |
+
+Slow registers 25, 27 and 769 are polled every 5 minutes. The last received filter interval, heater setpoint and runtime are retained across missed replies until the ESP32 restarts. They are unknown until their first successful read. Filter interval and Filter usage are recalculated when source data arrives. Main unit readings expire after 60 seconds without a reply.
 
 Speeds are steps, not RPM or percentages. Humidity is a setpoint, not a measurement. The filter interval is a configured period, not time remaining until maintenance.
 

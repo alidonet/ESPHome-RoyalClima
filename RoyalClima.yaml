@@ -10,10 +10,9 @@ substitutions:
   baud_rate: "9600"  # SW4-4: ON = 9600, OFF = 4800.
   modbus_address: "1"  # Controller parameter 08.
   refresh_interval: 15s
-  slow_refresh_interval: 60s
+  slow_refresh_interval: 5min
   response_timeout: 1200ms
   stale_timeout: 60s  # Keep the last reading for one minute without updates.
-  slow_stale_timeout: 180s  # Allow missed polls of the secondary registers.
 
 globals:
   - id: last_reply_ms
@@ -37,15 +36,17 @@ globals:
     type: std::array<bool, 3>
     initial_value: '{false, false, false}'
 esphome:
+  min_version: 2026.11.0
   name: ${name}
   friendly_name: RoyalClima
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.8.261118
+    version: 0.8.261119
   devices:
     - id: device_vent
       name: "Vent"
+      relation: via
 
 esp32:
   board: esp32dev
@@ -220,7 +221,7 @@ script:
           const char *names[] = {"Power", "Supply speed", "Exhaust speed"};
           for (int index = 0; index < 3; index++) {
             if (!id(command_waiting)[index]) continue;
-            ESP_LOGI("royalclima.command", "READBACK: %s delayed; still awaiting readback (not a write failure)", names[index]);
+            ESP_LOGI("royalclima.command", "READBACK: %s delayed; still awaiting readback (write outcome unknown until readback)", names[index]);
           }
       # Сохранять ожидание для позднего ответа планового опроса; не повторять запись автоматически.
       - delay: 50s
@@ -252,7 +253,7 @@ script:
 
 # Holding-register reads use FC03; user controls write registers 9-11 with FC06. No startup writes.
 # Registers 9-20 form one contiguous read; 25, 27 and 769 are separate reads.
-# Secondary reads expire after slow_stale_timeout; main-block reads after stale_timeout.
+# Secondary registers keep the last successful reading until reboot; main reads expire after stale_timeout.
 sensor:
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -552,8 +553,12 @@ sensor:
     accuracy_decimals: 0
     device_id: device_vent
     entity_category: diagnostic
-    filters:
-      - timeout: ${slow_stale_timeout}
+    # Последнее успешное значение хранится в RAM до следующего чтения или перезагрузки.
+    on_value:
+      then:
+        - component.update: filter_reminder_interval
+        - component.update: filter_usage
+
   - platform: modbus_controller
     modbus_controller_id: royalclima_slow_controller
     id: heater_setpoint
@@ -566,18 +571,16 @@ sensor:
     accuracy_decimals: 0
     device_id: device_vent
     entity_category: diagnostic
-    filters:
-      - timeout: ${slow_stale_timeout}
   - platform: template
     # Настроенный интервал напоминания о фильтре в днях; не оставшееся время до обслуживания.
     id: filter_reminder_interval
     name: "Filter interval"
-    icon: mdi:air-filter
+    icon: mdi:timer-refresh-interval
     device_id: device_vent
     unit_of_measurement: d
     accuracy_decimals: 0
     entity_category: diagnostic
-    update_interval: ${refresh_interval}
+    update_interval: never
     lambda: |-
       const float raw = id(filter_interval_code).state;
       if (isnan(raw) || raw < 0 || raw > 3) return NAN;
@@ -589,7 +592,7 @@ sensor:
     id: fan_runtime
     # Регистр 769 (R): наработка вентилятора, единица регистра — 0,1 часа.
     name: "Runtime"
-    icon: mdi:timer-outline
+    icon: mdi:fan-clock
     address: 769
     register_type: holding
     value_type: U_WORD
@@ -598,7 +601,10 @@ sensor:
     device_id: device_vent
     filters:
       - multiply: 0.1
-      - timeout: ${slow_stale_timeout}
+    # Последнее успешное значение хранится в RAM до следующего чтения или перезагрузки.
+    on_value:
+      then:
+        - component.update: filter_usage
 
   - platform: template
     id: filter_usage
@@ -609,7 +615,7 @@ sensor:
     unit_of_measurement: "%"
     accuracy_decimals: 1
     state_class: measurement
-    update_interval: ${refresh_interval}
+    update_interval: never
     lambda: |-
       const float hours = id(fan_runtime).state;
       const float days = id(filter_reminder_interval).state;
