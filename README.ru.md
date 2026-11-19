@@ -1,15 +1,15 @@
-<p align="center">
-  <img src="images/royalclima.png" width="380" alt="Royal Clima">
-  <img src="images/esp32.jpg" width="120" alt="ESP32">
-</p>
+# ESPHome для Royal Clima
+
+[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&query=%24.esphome.min_version&label=ESPHome&suffix=%2B&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Total downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
 
 [English](README.md)
 
-# ESPHome для Royal Clima
-
-[![Minimum ESPHome version](https://img.shields.io/badge/dynamic/yaml?url=https%3A%2F%2Fraw.githubusercontent.com%2Falidonet%2FESPHome-RoyalClima%2Fmain%2FRoyalClima.yaml&query=%24.esphome.min_version&label=ESPHome&suffix=%2B&color=000000&logo=esphome)](https://esphome.io/) ![Tested on Soffio Primo 650](https://img.shields.io/badge/Tested_on-Soffio_Primo_650-2e7d32) [![Factory and OTA firmware](https://img.shields.io/badge/Downloads-Factory_%2B_OTA-1976d2)](bin/) [![Total release downloads](https://img.shields.io/github/downloads/alidonet/ESPHome-RoyalClima/total?label=Release%20downloads)](https://github.com/alidonet/ESPHome-RoyalClima/releases)
-
 Прошивка для подключения рекуператора **Royal Clima SOFFIO Primo** к ESP32. Позволяет управлять вентиляцией и получать показания через Home Assistant или браузер.
+
+<p align="center">
+  <img src="images/royalclima.png" width="380" alt="Royal Clima">
+  &nbsp;<img src="images/esp32.jpg" width="120" alt="ESP32">
+</p>
 
 Серия включает **RCS-250-P, RCS-350-P, RCS-500-P и RCS-650-P**. Работа проверена на **RCS-650-P**. Возможна совместимость с **Holtop XHBQ**, но она не проверена.
 
@@ -65,7 +65,7 @@
 
 ![Схема платы рекуператора](images/scheme_ru.png)
 
-На плате рекуператора установите **SW4-4 в положение ON — скорость 9600 бод**. Адрес установки по умолчанию — **1** (параметр 08 штатного пульта). Если изменили его на ПВУ, задайте такой же `modbus_address` в `substitutions` и пересоберите прошивку; `baud_rate` меняется там же. Обе группы опроса используют один адрес.
+На плате рекуператора установите **SW4-4 в положение ON — скорость 9600 бод**. Адрес установки по умолчанию — **1** (параметр 08 штатного пульта). Скорость адаптера по умолчанию — 9600 бод; для SW4-4 OFF задайте `baud_rate: "4800"` и пересоберите прошивку. При изменении адреса ПВУ задайте такой же `modbus_address` в подстановках YAML и пересоберите прошивку. Обе группы опроса используют этот адрес.
 
 ### Питание от рекуператора
 
@@ -77,19 +77,39 @@
 
 ### Готовая прошивка
 
-**Файлы в `bin/` пока не пересобраны под новую настройку Wi-Fi.** Описанный ниже ввод сети через Improv Serial или `royalclima Setup` относится к сборке из обновлённого YAML; старые бинарные файлы могут работать иначе.
-
 1. Подключите ESP32 к компьютеру через USB.
 2. Откройте [ESPHome Web](https://web.esphome.io/) в Chrome или Edge, подключитесь к плате и установите файл **factory.bin** по ссылке выше.
 3. Если установщик предлагает настройку Wi-Fi по USB (Improv Serial), укажите свою сеть. Иначе подключитесь телефоном или компьютером к открытой сети **royalclima Setup** и откройте `http://192.168.4.1/`: выберите свою сеть 2,4 ГГц и введите пароль.
-4. Откройте `http://royalclima.local/` или IP-адрес ESP32 в своей сети.
+4. Откройте `http://royalclima.local/` или IP-адрес ESP32. При необходимости заполните поля MQTT и нажмите **MQTT apply**.
 
-Для последующих обновлений по Wi-Fi используйте **ota.bin** через ESPHome.
+Для последующих обновлений по Wi-Fi загрузите **ota.bin** через веб-интерфейс устройства. Для изменения настроек подключения сборка ESPHome не нужна.
+
+### Настройка MQTT в штатном веб-интерфейсе
+
+После подключения Wi-Fi откройте IP-адрес ESP32 или `http://royalclima.local/`. Для MQTT используются обычные настроечные сущности ESPHome на той же странице; отдельной страницы настройки и внешних компонентов нет. Home Assistant API доступен независимо от MQTT.
+
+Настроечные сущности MQTT отключены по умолчанию в Home Assistant и доступны в веб-интерфейсе устройства. Для уже зарегистрированных сущностей HA сохраняет выбранное состояние активности; оно управляется в HA.
+
+| Сущность | Назначение |
+|---|---|
+| MQTT enabled | Включить MQTT при следующем запуске; по умолчанию выключен. |
+| MQTT broker | Имя или IP брокера без схемы URI, пути и пробелов. |
+| MQTT port | Целое число 1–65535; по умолчанию 1883. Обычный MQTT/TCP; TLS через эти поля не настраивается. |
+| MQTT username | Необязательный логин брокера, до 128 байт UTF-8. |
+| MQTT password | Поле только для ввода пароля, до 128 байт. Очищается после ввода; пустая строка сохраняет прежний пароль. Секрет хранится отдельно и не возвращается как состояние сущности. |
+| MQTT clear password | Удалить сохранённый пароль; для переподключения примените настройки. |
+| MQTT topic | До 64 байт; без пробелов, `+`, `#` и `/` в начале или конце. Пустое сохранённое значение выбирает при запуске `royalclima_<последние шесть цифр MAC>`. |
+| MQTT apply | Проверить настройки, записать сохранённые значения во flash и перезагрузить только ESP32. Новые параметры подключения применяются после перезагрузки. |
+| MQTT setup status | Ошибки проверки или статус настройки; без учётных данных. |
+
+Введите и отправьте каждое поле штатным элементом ESPHome, затем нажмите **MQTT apply**. Поля сохраняются по мере изменения; пароль сохраняется восстанавливаемой внутренней global. Обычное OTA сохраняет настройки; стирание flash или заводской сброс удаляет их. При перезагрузке также применяются последние сохранённые поля. Брокер обязателен только при включённом MQTT. Отсутствие клиента API или подключения к брокеру не вызывает перезагрузку.
+
+Скорость RS485 по умолчанию — **9600 бод**; при сборке она задаётся подстановкой `baud_rate` (`"9600"` или `"4800"`). Адрес Modbus задаётся при сборке подстановкой `modbus_address` (по умолчанию 1), а не через веб-интерфейс. Эти значения должны соответствовать ПВУ. Используйте веб-интерфейс в доверенной локальной сети: он работает по HTTP, сохранённые учётные данные эта YAML-конфигурация не шифрует.
 
 ### Установка через ESPHome
 
-1. Добавьте [RoyalClima.yaml](RoyalClima.yaml) в ESPHome Device Builder.
-2. При необходимости измените `tx_pin`, `rx_pin`, `en_pin`, `baud_rate` и `modbus_address` в `substitutions`.
+1. Добавьте [RoyalClima.yaml](RoyalClima.yaml) в ESPHome Device Builder; внешние компоненты не требуются.
+2. Задайте `tx_pin`, `rx_pin`, `en_pin`, `baud_rate` и `modbus_address` согласно установке.
 3. Выберите «Установить». Первую установку выполните через USB, последующие — по Wi-Fi. Сеть задаётся после прошивки по USB или через **royalclima Setup**, как описано выше; `secrets.yaml` для Wi-Fi не нужен.
 
 Wi-Fi-настройки хранятся на ESP32. Обычное OTA сохраняет их, пока в YAML не заданы SSID и пароль. Полное стирание flash или заводской сброс удаляют настройки; при USB-прошивке со стиранием потребуется повторный ввод. При недоступности сохранённой сети устройство возвращается в режим настройки (тайм-аут резервной точки — 30 секунд). См. [сохранение настроек Wi-Fi в ESPHome](https://esphome.io/components/wifi/#saving-wifi-credentials).
@@ -112,7 +132,7 @@ Wi-Fi-настройки хранятся на ESP32. Обычное OTA сох�
 
 Названия приведены так, как они указаны в прошивке. Один узел ESPHome предоставляет два устройства HA: **Vent** (ПВУ, префикс `vent_`) и **RoyalClima** (ESP32, префикс `royalclima_`). В HA их можно переименовать для отображения в **ERV** и **ESP**, сохранив идентификаторы сущностей. Короткие названия сущностей не содержат повторения имени устройства.
 
-Примеры целевых ID: `sensor.vent_supply_temp`, `sensor.vent_supply_speed`, `select.vent_supply_speed`, `binary_sensor.vent_power`, `switch.vent_power`, `sensor.royalclima_version`, `button.royalclima_reboot`.
+Примеры целевых ID: `sensor.vent_supply_temp`, `select.vent_supply_speed`, `switch.vent_power`, `sensor.royalclima_version`, `button.royalclima_reboot`.
 
 ### Показания установки
 
@@ -122,10 +142,6 @@ Wi-Fi-настройки хранятся на ESP32. Обычное OTA сох�
 | Outdoor temp | `sensor.vent_outdoor_temp` | Температура наружного воздуха (OA). |
 | Supply temp | `sensor.vent_supply_temp` | Температура воздуха, подаваемого в помещение (SA). |
 | Exhaust temp | `sensor.vent_exhaust_temp` | Температура выбрасываемого воздуха (FR). |
-| Supply speed | `sensor.vent_supply_speed` | Текущая ступень приточного вентилятора, от 0 до 10; 0 — остановка. |
-| Exhaust speed | `sensor.vent_exhaust_speed` | Текущая ступень вытяжного вентилятора, от 0 до 10; 0 — остановка. |
-| Humidity target | `sensor.vent_humidity_target` | Заданная влажность, а не измеренная влажность в помещении. |
-| Heater target | `sensor.vent_heater_target` | Заданная температура нагревателя. |
 | Filter interval | `sensor.vent_filter_interval` | Настроенный период напоминания о фильтре в днях, а не оставшиеся дни. |
 | Runtime | `sensor.vent_runtime` | Наработка вентилятора в часах. |
 | Filter usage | `sensor.vent_filter_usage` | Наработка в процентах от настроенного интервала фильтра: часы / (дни × 24) × 100. Может превышать 100%; до первого получения исходных данных — неизвестно. |
@@ -139,7 +155,6 @@ Wi-Fi-настройки хранятся на ESP32. Обычное OTA сох�
 | Название | Целевой ID в HA | Назначение |
 |---|---|---|
 | Online | `binary_sensor.vent_online` | Есть актуальные данные от вентиляционной установки. |
-| Power | `binary_sensor.vent_power` | Установка включена или выключена. |
 | Bypass open | `binary_sensor.vent_bypass_open` | Байпас открыт или закрыт. |
 | Bypass closed * | `binary_sensor.vent_bypass_closed` | Дополнительный признак закрытого байпаса. |
 | Defrost | `binary_sensor.vent_defrost` | Активен режим разморозки. |
@@ -176,6 +191,8 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 | Sensor boost raw | — (`internal`) | Служебный сигнал форсирования по датчику CO₂ или влажности. |
 | Filter code | — (`internal`) | Служебный код настроенного периода напоминания о фильтре. |
 
+Питание, ступени вентиляторов и уставки представлены одной публичной сущностью управления на параметр (`switch`, `select`, `number`). Состояние обновляется по чтению ПВУ; запись не подтверждает запрошенное значение заранее. Уставки и Fault bits отключены по умолчанию в HA. Внутренние источники чтения и исполнители записи не экспортируются.
+
 ### Управление и настройки
 
 | Название | Целевой ID в HA | Назначение |
@@ -199,4 +216,4 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 
 ![Схема воздушных потоков Royal Clima в Home Assistant](images/flows_panel.png)
 
-Показания и управление также доступны в браузере по адресу ESP32. Прошивка поддерживает MQTT после настройки подключения к брокеру в YAML.
+Показания и управление также доступны в браузере по адресу ESP32. MQTT настраивается штатными настроечными сущностями ESPHome в веб-интерфейсе.

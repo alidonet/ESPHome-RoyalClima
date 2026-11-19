@@ -8,7 +8,7 @@ substitutions:
   rx_pin: GPIO16
   en_pin: GPIO18
   baud_rate: "9600"  # SW4-4: ON = 9600, OFF = 4800.
-  modbus_address: "1"  # Controller parameter 08.
+  modbus_address: "1"  # Compile-time address; must match unit parameter 08.
   refresh_interval: 15s
   slow_refresh_interval: 5min
   response_timeout: 1200ms
@@ -35,6 +35,15 @@ globals:
   - id: command_waiting
     type: std::array<bool, 3>
     initial_value: '{false, false, false}'
+  # Пароль не является состоянием сущности и не возвращается в API/MQTT.
+  - id: mqtt_password_secret
+    type: std::string
+    restore_value: true
+    max_restore_data_length: 128
+    initial_value: '""'
+  - id: mqtt_settings_valid
+    type: bool
+    initial_value: 'false'
 esphome:
   min_version: 2026.11.0
   name: ${name}
@@ -42,12 +51,42 @@ esphome:
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.8.261119
+    version: 0.9.261120
   devices:
     - id: device_vent
       name: "Vent"
       relation: via
 
+  on_boot:
+    # После восстановления штатных полей (800/798), до запуска MQTT (200).
+    - priority: 790
+      then:
+        - script.execute: validate_mqtt_settings
+        - lambda: |-
+            if (!id(mqtt_settings_valid)) return;
+            std::string topic = id(mqtt_topic_prefix).state;
+            if (topic.empty()) {
+              char mac[MAC_ADDRESS_BUFFER_SIZE];
+              get_mac_address_into_buffer(mac);
+              topic = std::string("royalclima_") + (mac + 6);
+              id(mqtt_topic_prefix).publish_state(topic);
+            }
+            id(royalclima_mqtt).set_broker_address(id(mqtt_broker).state);
+            id(royalclima_mqtt).set_broker_port(static_cast<uint16_t>(id(mqtt_port).state));
+            id(royalclima_mqtt).set_username(id(mqtt_username).state);
+            id(royalclima_mqtt).set_password(id(mqtt_password_secret));
+            id(royalclima_mqtt).set_topic_prefix(topic);
+            id(royalclima_mqtt).set_birth_message(mqtt::MQTTMessage{topic + "/status", "online", 0, true});
+            id(royalclima_mqtt).set_last_will(mqtt::MQTTMessage{topic + "/status", "offline", 0, true});
+            id(royalclima_mqtt).set_shutdown_message(mqtt::MQTTMessage{topic + "/status", "offline", 0, true});
+            id(royalclima_mqtt).set_enable_on_boot(id(mqtt_enabled).state);
+            id(mqtt_setup_status).publish_state(id(mqtt_enabled).state
+                ? "MQTT enabled; API available" : "MQTT disabled; API available");
+    - priority: -100
+      then:
+        - text.set:
+            id: mqtt_password_input
+            value: ""
 esp32:
   board: esp32dev
   framework:
@@ -64,15 +103,17 @@ wifi:
 captive_portal:
 improv_serial:
 
-# If you use Home Assistant please remove this `mqtt` section and uncomment the `api` component!
-# The native API has many advantages over MQTT: https://esphome.io/components/api.html#advantages-over-mqtt
-#mqtt:
-#  broker: !secret mqtt_ip_address
-#  username: !secret mqtt_user
-#  password: !secret mqtt_password
-#  id: !secret esp_mqtt_topic
-
+# Native API is always available; MQTT settings are standard ESPHome entities.
 api:
+  reboot_timeout: 0s
+
+mqtt:
+  id: royalclima_mqtt
+  broker: ""
+  enable_on_boot: false
+  reboot_timeout: 0s
+  idf_send_async: true
+  log_topic: null
 
 ota:
   - platform: esphome
@@ -128,14 +169,14 @@ modbus_controller:
               for (int index = 0; index < 3; index++) {
                 if (!id(command_waiting)[index]) continue;
                 ESP_LOGI("royalclima.command", "TX read FC03: device=%u register=%d (awaiting command readback)",
-                         ${modbus_address}, address);
+                         unsigned(${modbus_address}), address);
                 break;
               }
               return;
             }
             if (function_code != 6) return;
             ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
-                     ${modbus_address}, address);
+                     unsigned(${modbus_address}), address);
             if (address >= 9 && address <= 11) {
               const int index = address - 9;
               if (id(command_expected)[index] >= 0) {
@@ -164,7 +205,7 @@ modbus_controller:
         - lambda: |-
             if (function_code != 6) return;
             ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
-                     ${modbus_address}, address);
+                     unsigned(${modbus_address}), address);
     on_offline:
       then:
         - lambda: |-
@@ -173,6 +214,47 @@ modbus_controller:
         - script.execute: report_modbus_failure
 
 script:
+  - id: validate_mqtt_settings
+    then:
+      - lambda: |-
+          const auto &host = id(mqtt_broker).state;
+          const auto &topic = id(mqtt_topic_prefix).state;
+          std::string error;
+          if (id(mqtt_enabled).state && host.empty()) error = "MQTT broker is required";
+          for (unsigned char ch : host) {
+            if (ch <= 32 || ch == '/' || ch == '?' || ch == '#' || ch == '@' || ch == 127)
+              error = "Broker: use hostname or IP, without scheme, path or spaces";
+          }
+          if (topic.size() > 64 || (!topic.empty() && (topic.front() == '/' || topic.back() == '/')))
+            error = "Topic: max 64 bytes, no leading or trailing slash";
+          for (unsigned char ch : topic) {
+            if (ch <= 32 || ch == '+' || ch == '#' || ch == 127)
+              error = "Topic: no spaces, + or #";
+          }
+          const float port = id(mqtt_port).state;
+          if (!std::isfinite(port) || port < 1 || port > 65535 || port != static_cast<uint16_t>(port))
+            error = "MQTT port must be an integer from 1 to 65535";
+          id(mqtt_settings_valid) = error.empty();
+          if (!error.empty()) id(mqtt_setup_status).publish_state(error);
+  - id: apply_mqtt_settings
+    mode: single
+    then:
+      - script.execute: validate_mqtt_settings
+      - if:
+          condition:
+            lambda: return id(mqtt_settings_valid);
+          then:
+            - text_sensor.template.publish:
+                id: mqtt_setup_status
+                state: "Saving settings; restarting ESP32"
+            # Восстанавливаемая строковая global записывается штатным компонентом раз в секунду.
+            - delay: 2s
+            - lambda: |-
+                if (!global_preferences->sync()) {
+                  id(mqtt_setup_status).publish_state("Could not save settings; restart cancelled");
+                  return;
+                }
+                App.safe_reboot();
   - id: refresh_ventilation_status
     mode: restart
     then:
@@ -273,11 +355,7 @@ sensor:
       then:
         # Состояние питания публикуется сразу по чтению, без дополнительного таймера.
         - lambda: |-
-            if (isnan(x)) {
-              id(ventilation_power).invalidate_state();
-              return;
-            }
-            id(ventilation_power).publish_state(x != 0);
+            if (isnan(x)) return;
             id(ventilation_control).publish_state(x != 0);
             id(log_command_readback).execute(9, static_cast<int>(x));
         - script.execute: refresh_ventilation_status
@@ -309,7 +387,6 @@ sensor:
       - timeout: ${stale_timeout}
     on_value:
       then:
-        - component.update: supply_fan_speed
         - lambda: |-
             if (!isnan(x)) id(log_command_readback).execute(10, static_cast<int>(x));
 
@@ -329,7 +406,6 @@ sensor:
       - timeout: ${stale_timeout}
     on_value:
       then:
-        - component.update: exhaust_fan_speed
         - lambda: |-
             if (!isnan(x)) id(log_command_readback).execute(11, static_cast<int>(x));
 
@@ -465,39 +541,6 @@ sensor:
     entity_category: diagnostic
     update_interval: ${refresh_interval}
     lambda: return id(offline_count);
-  - platform: template
-    # Ступень скорости приточного вентилятора, 0–10, вычисленная из регистра 10; не измеренные обороты.
-    id: supply_fan_speed
-    name: "Supply speed"
-    icon: mdi:fan-chevron-down
-    device_id: device_vent
-    accuracy_decimals: 0
-    update_interval: never
-    lambda: |-
-      const float raw = id(supply_raw).state;
-      if (isnan(raw)) return NAN;
-      const int codes[] = {0, 2, 3, 5, 8, 9, 10, 11, 12, 13, 14};
-      for (int i = 0; i <= 10; i++) {
-        if (raw == codes[i]) return i;
-      }
-      return NAN;
-  - platform: template
-    # Ступень скорости вытяжного вентилятора, 0–10, вычисленная из регистра 11; не измеренные обороты.
-    id: exhaust_fan_speed
-    name: "Exhaust speed"
-    icon: mdi:fan-chevron-up
-    device_id: device_vent
-    accuracy_decimals: 0
-    update_interval: never
-    lambda: |-
-      const float raw = id(exhaust_raw).state;
-      if (isnan(raw)) return NAN;
-      const int codes[] = {0, 2, 3, 5, 8, 9, 10, 11, 12, 13, 14};
-      for (int i = 0; i <= 10; i++) {
-        if (raw == codes[i]) return i;
-      }
-      return NAN;
-
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: external_input_boost_signal_raw
@@ -532,6 +575,7 @@ sensor:
     id: humidity_setpoint
     # Регистр 19 (RW): заданная относительная влажность, 1–99 %; не текущее измерение.
     name: "Humidity target"
+    internal: true
     icon: mdi:water-percent
     address: 19
     register_type: holding
@@ -541,6 +585,11 @@ sensor:
     entity_category: diagnostic
     filters:
       - timeout: ${stale_timeout}
+    # Публичная уставка обновляется только по ответу ПВУ, включая потерю актуальности.
+    on_value:
+      then:
+        - component.update: humidity_target_control
+
   - platform: modbus_controller
     modbus_controller_id: royalclima_slow_controller
     id: filter_interval_code
@@ -564,6 +613,7 @@ sensor:
     id: heater_setpoint
     # Регистр 27 (RW): заданная температура включения/выключения нагревателя, 10–25 °C.
     name: "Heater target"
+    internal: true
     icon: mdi:thermometer
     address: 27
     register_type: holding
@@ -571,6 +621,11 @@ sensor:
     accuracy_decimals: 0
     device_id: device_vent
     entity_category: diagnostic
+    # Публичная уставка обновляется только по ответу ПВУ, включая потерю актуальности.
+    on_value:
+      then:
+        - component.update: heater_target_control
+
   - platform: template
     # Настроенный интервал напоминания о фильтре в днях; не оставшееся время до обслуживания.
     id: filter_reminder_interval
@@ -624,14 +679,43 @@ sensor:
       return hours / (days * 24.0f) * 100.0f;
 
 number:
-  - platform: modbus_controller
-    modbus_controller_id: royalclima_controller
-    # Регистр 19 (RW): уставка влажности 1–99 %, если используется датчик влажности.
+  - platform: template
+    id: mqtt_port
+    # Порт MQTT-брокера; применяется после MQTT apply.
+    name: "MQTT port"
+    disabled_by_default: true
+    icon: mdi:numeric
+    entity_category: config
+    min_value: 1
+    max_value: 65535
+    step: 1
+    initial_value: 1883
+    restore_value: true
+    optimistic: true
+    mode: box
+  - platform: template
+    id: humidity_target_control
+    # Регистр 19 (RW): управление и подтверждённая уставка в одной сущности.
     name: "Humidity target"
     device_id: device_vent
     icon: mdi:water-percent
     entity_category: config
     disabled_by_default: true
+    min_value: 1
+    max_value: 99
+    step: 1
+    optimistic: false
+    update_interval: never
+    lambda: return id(humidity_setpoint).state;
+    set_action:
+      - number.set:
+          id: humidity_target_writer
+          value: !lambda return x;
+  - platform: modbus_controller
+    modbus_controller_id: royalclima_controller
+    id: humidity_target_writer
+    # Внутренний исполнитель записи; запрошенное значение не публикуется как подтверждённое.
+    internal: true
     address: 19
     register_type: holding
     value_type: U_WORD
@@ -639,18 +723,33 @@ number:
     max_value: 99
     step: 1
     use_write_multiple: false
-    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
     write_lambda: |-
-      ESP_LOGI("royalclima.command", "REQUEST: Set humidity setpoint to %.0f %% (FC06 register=19)", x);
+      ESP_LOGI("royalclima.command", "REQUEST: Set humidity setpoint to %.0f (FC06 register=19)", x);
       return x;
-  - platform: modbus_controller
-    modbus_controller_id: royalclima_slow_controller
-    # Регистр 27 (RW): уставка нагревателя 10–25 °C; назначение выхода проверить на установке.
+
+  - platform: template
+    id: heater_target_control
+    # Регистр 27 (RW): управление и подтверждённая уставка в одной сущности.
     name: "Heater target"
     device_id: device_vent
     icon: mdi:thermometer
     entity_category: config
     disabled_by_default: true
+    min_value: 10
+    max_value: 25
+    step: 1
+    optimistic: false
+    update_interval: never
+    lambda: return id(heater_setpoint).state;
+    set_action:
+      - number.set:
+          id: heater_target_writer
+          value: !lambda return x;
+  - platform: modbus_controller
+    modbus_controller_id: royalclima_slow_controller
+    id: heater_target_writer
+    # Внутренний исполнитель записи; запрошенное значение не публикуется как подтверждённое.
+    internal: true
     address: 27
     register_type: holding
     value_type: U_WORD
@@ -658,9 +757,8 @@ number:
     max_value: 25
     step: 1
     use_write_multiple: false
-    # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
     write_lambda: |-
-      ESP_LOGI("royalclima.command", "REQUEST: Set heater temperature setpoint to %.0f C (FC06 register=27)", x);
+      ESP_LOGI("royalclima.command", "REQUEST: Set heater temperature setpoint to %.0f (FC06 register=27)", x);
       return x;
 
 binary_sensor:
@@ -683,13 +781,6 @@ binary_sensor:
       return id(has_reply) && !isnan(id(power_raw).state);
     entity_category: "diagnostic"   
 
-  - platform: template
-    id: ventilation_power
-    # Установка включена/выключена по регистру 9; не подтверждение вращения вентиляторов.
-    name: "Power"
-    icon: mdi:power
-    device_class: running
-    device_id: device_vent
   - platform: template
     id: bypass_open
     # Положение байпаса по битам 1 и 2 регистра 18: открыт/закрыт; обе одинаковые отметки — неизвестно.
@@ -825,6 +916,14 @@ binary_sensor:
 
 text_sensor:
   - platform: template
+    id: mqtt_setup_status
+    # Результат проверки и применения настроек; секреты не публикуются.
+    name: "MQTT setup status"
+    disabled_by_default: true
+    icon: mdi:information-outline
+    entity_category: diagnostic
+    update_interval: never
+  - platform: template
     # Версия проекта в установленной прошивке.
     name: "Version"
     icon: mdi:tag-outline
@@ -897,6 +996,24 @@ text_sensor:
       result += (english ? " (code " : " (код ") + std::to_string(code) + ")";
       return result;
 button:
+  - platform: template
+    # Проверить настройки MQTT, сбросить очередь flash-записей и перезагрузить только ESP32.
+    name: "MQTT apply"
+    disabled_by_default: true
+    icon: mdi:content-save-settings
+    entity_category: config
+    on_press:
+      - script.execute: apply_mqtt_settings
+  - platform: template
+    # Удалить сохранённый пароль; новое подключение после MQTT apply.
+    name: "MQTT clear password"
+    disabled_by_default: true
+    icon: mdi:lock-remove-outline
+    entity_category: config
+    on_press:
+      - lambda: |-
+          id(mqtt_password_secret).clear();
+          id(mqtt_setup_status).publish_state("Password cleared; press MQTT apply to reconnect");
   - platform: restart
     # Удалённая перезагрузка ESP32 с ESPHome; плата рекуператора не перезапускается.
     name: "Reboot"
@@ -904,6 +1021,15 @@ button:
     icon: mdi:restart
     entity_category: diagnostic
 switch:
+  - platform: template
+    id: mqtt_enabled
+    # Выбор MQTT для следующего запуска; API всегда доступен.
+    name: "MQTT enabled"
+    disabled_by_default: true
+    icon: mdi:message-settings-outline
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
   - platform: template
     id: ventilation_control
     # Публикуется только прочитанное питание регистра 9 (RW); команды не меняют состояние заранее.
@@ -1003,3 +1129,60 @@ select:
       "8": 12
       "9": 13
       "10": 14
+
+# Штатные поля веб-интерфейса ESPHome; отдельной страницы настройки нет.
+text:
+  - platform: template
+    id: mqtt_broker
+    # Имя или IP MQTT-брокера без схемы URI; применяется после MQTT apply.
+    name: "MQTT broker"
+    disabled_by_default: true
+    icon: mdi:server-network
+    entity_category: config
+    mode: text
+    max_length: 128
+    initial_value: ""
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: mqtt_username
+    # Необязательный логин брокера; применяется после MQTT apply.
+    name: "MQTT username"
+    disabled_by_default: true
+    icon: mdi:account-outline
+    entity_category: config
+    mode: text
+    max_length: 128
+    initial_value: ""
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: mqtt_topic_prefix
+    # До 64 байт; пустое сохранённое значение выбирает royalclima_<последние 6 цифр MAC>.
+    name: "MQTT topic"
+    disabled_by_default: true
+    icon: mdi:format-list-bulleted
+    entity_category: config
+    mode: text
+    max_length: 64
+    initial_value: ""
+    optimistic: true
+    restore_value: true
+  - platform: template
+    id: mqtt_password_input
+    # Только ввод: пустая строка сохраняет прежний пароль, секрет хранится отдельно.
+    name: "MQTT password"
+    disabled_by_default: true
+    icon: mdi:lock-outline
+    entity_category: config
+    mode: password
+    max_length: 128
+    update_interval: never
+    lambda: return {""};
+    set_action:
+      - lambda: |-
+          if (!x.empty()) {
+            id(mqtt_password_secret) = x;
+            id(mqtt_setup_status).publish_state("Password updated; press MQTT apply to reconnect");
+          }
+          id(mqtt_password_input).publish_state("");
