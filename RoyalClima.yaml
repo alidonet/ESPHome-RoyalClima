@@ -7,12 +7,6 @@ substitutions:
   tx_pin: GPIO17
   rx_pin: GPIO16
   en_pin: GPIO18
-  fan_speeds: "10"  # 3 = AC (steps 1-3), 10 = DC (steps 1-10); 0 is available in both.
-  # Общая таблица чтения/записи; другие значения fan_speeds вызывают ошибку проверки YAML.
-  fan_speed_options: >-
-    ${ {"3": {"0": 0, "1": 2, "2": 3, "3": 5},
-        "10": {"0": 0, "1": 2, "2": 3, "3": 5, "4": 8, "5": 9,
-               "6": 10, "7": 11, "8": 12, "9": 13, "10": 14}}[fan_speeds] }
   baud_rate: "9600"  # SW4-4: ON = 9600, OFF = 4800.
   modbus_address: "1"  # Compile-time address; must match unit parameter 08.
   refresh_interval: 15s
@@ -57,7 +51,7 @@ esphome:
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.9.261121
+    version: 0.9.261122
   devices:
     - id: device_vent
       name: "Vent"
@@ -67,6 +61,12 @@ esphome:
     # После восстановления штатных полей (800/798), до запуска MQTT (200).
     - priority: 790
       then:
+        # Списки задаются до подключения API/MQTT: метаданные соответствуют выбранному режиму.
+        - lambda: |-
+            if (id(fan_speed_mode).current_option() == "3") {
+              id(supply_speed_control).traits.set_options({"0", "1", "2", "3"});
+              id(exhaust_speed_control).traits.set_options({"0", "1", "2", "3"});
+            }
         - script.execute: validate_mqtt_settings
         - lambda: |-
             if (!id(mqtt_settings_valid)) return;
@@ -136,7 +136,7 @@ logger:
 web_server:
   local: true
   port: 80
-  version: 2
+  version: 3
 
 output:
   - platform: gpio
@@ -1066,6 +1066,30 @@ switch:
 
 select:
   - platform: template
+    id: fan_speed_mode
+    # Число ступеней адаптера; сохраняется, применяется перезапуском ESP32, не меняет параметры ПВУ.
+    name: "Fan speeds"
+    device_id: device_vent
+    icon: mdi:fan-cog
+    entity_category: config
+    disabled_by_default: true
+    options:
+      - "3"
+      - "10"
+    initial_option: "10"
+    optimistic: false
+    restore_value: true
+    set_action:
+      - if:
+          condition:
+            lambda: return x != id(fan_speed_mode).current_option();
+          then:
+            - lambda: id(fan_speed_mode).publish_state(x);
+            - delay: 2s
+            - lambda: |-
+                global_preferences->sync();
+                App.safe_reboot();
+  - platform: template
     id: message_language
     # Язык текстовых статусов и ошибок; сохраняется после перезагрузки, обновление в течение 3 с.
     name: "Language"
@@ -1085,6 +1109,11 @@ select:
     device_id: device_vent
     icon: mdi:fan-chevron-down
     address: 10
+    # Не искать индекс за пределами укороченного списка при неверном режиме или внешнем изменении скорости.
+    lambda: |-
+      if (id(fan_speed_mode).current_option() == "3" && x > 5)
+        return std::string("unsupported");
+      return {};
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
@@ -1094,7 +1123,18 @@ select:
       id(command_expected)[1] = static_cast<int>(value);
       id(command_waiting)[1] = false;
       return value;
-    optionsmap: ${fan_speed_options}
+    optionsmap:
+      "0": 0
+      "1": 2
+      "2": 3
+      "3": 5
+      "4": 8
+      "5": 9
+      "6": 10
+      "7": 11
+      "8": 12
+      "9": 13
+      "10": 14
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: exhaust_speed_control
@@ -1103,6 +1143,11 @@ select:
     device_id: device_vent
     icon: mdi:fan-chevron-up
     address: 11
+    # Не искать индекс за пределами укороченного списка при неверном режиме или внешнем изменении скорости.
+    lambda: |-
+      if (id(fan_speed_mode).current_option() == "3" && x > 5)
+        return std::string("unsupported");
+      return {};
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
@@ -1112,7 +1157,18 @@ select:
       id(command_expected)[2] = static_cast<int>(value);
       id(command_waiting)[2] = false;
       return value;
-    optionsmap: ${fan_speed_options}
+    optionsmap:
+      "0": 0
+      "1": 2
+      "2": 3
+      "3": 5
+      "4": 8
+      "5": 9
+      "6": 10
+      "7": 11
+      "8": 12
+      "9": 13
+      "10": 14
 
 # Штатные поля веб-интерфейса ESPHome; отдельной страницы настройки нет.
 text:
