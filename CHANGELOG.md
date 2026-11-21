@@ -8,6 +8,7 @@
 - Raised the minimum ESPHome version to 2026.11.0 and linked the Vent device to the ESP32 as its gateway in Home Assistant.
 - Allowed more time for the unit to report its state after a power or fan-speed command. The firmware can confirm a command from a later reading.
 - Retained the last successful readings for fan runtime, filter interval, and heater setpoint until new data arrives or the ESP32 reboots. Filter usage now updates when the runtime or filter interval is read.
+- Add support for 0-3 and 0-10 fan speeds;
 
 ## v0.8
 

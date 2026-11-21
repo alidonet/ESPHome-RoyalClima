@@ -109,7 +109,7 @@ RS485 defaults to **9600 baud**, configured at build time through `baud_rate` (`
 ### Installation through ESPHome
 
 1. Add [RoyalClima.yaml](RoyalClima.yaml) to ESPHome Device Builder; no external components are required.
-2. Adjust `tx_pin`, `rx_pin`, `en_pin`, `baud_rate` and `modbus_address` for your installation.
+2. Adjust `tx_pin`, `rx_pin`, `en_pin`, `baud_rate`, `modbus_address` and `fan_speeds` for your installation.
 3. Select **Install**. Use USB for the first installation and Wi-Fi for subsequent updates. Configure Wi-Fi after flashing, through USB or **royalclima Setup**, as described above; Wi-Fi does not require `secrets.yaml`.
 
 Wi-Fi credentials are stored on the ESP32. Normal OTA updates preserve them as long as the YAML does not specify an SSID and password. Erasing flash or performing a factory reset clears the settings; USB flashing that erases flash requires provisioning again. If the saved network is unavailable, the device returns to setup mode (fallback AP timeout: 30 seconds). See [ESPHome Wi-Fi credential persistence](https://esphome.io/components/wifi/#saving-wifi-credentials).
@@ -119,7 +119,7 @@ Requires **ESPHome 2026.11.0 or newer**. The ventilation unit is declared as a s
 ## Features
 
 - Turn ventilation on and off.
-- Set supply and exhaust fan speeds independently: **steps 0–10**, where 0 means stopped.
+- Set supply and exhaust fan speeds independently: **steps 0–3 or 0–10**, selected through `fan_speeds`; 0 means stopped.
 - Four temperatures: outdoor air, return air from the room, supply air and exhaust air discharged outside.
 - Bypass, defrost, fire input and boost states.
 - Fan runtime and the configured filter reminder interval.
@@ -193,13 +193,15 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 
 Power, fan steps and setpoints use one public control entity each (`switch`, `select`, `number`). Their state follows unit reads; writes do not optimistically confirm the requested value. Setpoints and Fault bits are disabled by default in HA. Internal read/write helpers are not exported.
 
+Set `fan_speeds: "10"` (default) for ten fan steps or `fan_speeds: "3"` for three steps. Both modes include 0. This build-time setting limits both speed selectors; it does not change the ventilation unit's motor configuration. Three-speed mode uses the same codes 2, 3 and 5 for steps 1, 2 and 3. Compatibility with AC units has not been verified on hardware; other registers and fault decoding remain based on the DC protocol.
+
 ### Controls and settings
 
 | Name | Target HA ID | Purpose |
 |---|---|---|
 | Power | `switch.vent_power` | Turn the unit on and off. |
-| Supply speed | `select.vent_supply_speed` | Select the supply fan step: 0–10. |
-| Exhaust speed | `select.vent_exhaust_speed` | Select the exhaust fan step: 0–10. |
+| Supply speed | `select.vent_supply_speed` | Select the supply fan step: 0–3 or 0–10, according to `fan_speeds`. |
+| Exhaust speed | `select.vent_exhaust_speed` | Select the exhaust fan step: 0–3 or 0–10, according to `fan_speeds`. |
 | Humidity target * | `number.vent_humidity_target` | Change the humidity setpoint: 1–99 %. |
 | Heater target * | `number.vent_heater_target` | Change the heater temperature setpoint: 10–25 °C. |
 | Language | `select.royalclima_language` | Message language: ru for Russian, en for English. Defaults to en; the selection is saved. |
@@ -212,8 +214,8 @@ In Home Assistant, open **Settings → Devices & services** and add the discover
 For convenient control, use the separate [Royal Clima ERV Card](https://github.com/alidonet/ha-royal-clima-card) project. Installation and configuration instructions are available in its repository.
 Example card views in Home Assistant (Russian labels):
 
-![Royal Clima control panel in Home Assistant](images/control_panel.png) 
-![Royal Clima airflow view in Home Assistant](images/flows_panel.png)
+![Royal Clima control panel in Home Assistant](images/control_panel.gif)
+![Royal Clima airflow view in Home Assistant](images/flows_panel.gif)
 
 Readings and controls are also available in a browser at the ESP32's address. MQTT is configured using the standard ESPHome configuration entities in the web interface.
 
