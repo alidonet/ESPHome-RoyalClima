@@ -22,6 +22,8 @@ The series includes **RCS-250-P, RCS-350-P, RCS-500-P and RCS-650-P**. Tested on
   <img src="images/soffio.jpg" style="max-width: 100%; height: auto;" alt="Royal Clima SOFFIO Primo ventilation unit">
 </p>
 
+Each ESP32 uses a unique network name, `royalclima-<last six MAC digits>`, so multiple adapters can use the same MQTT broker without overwriting Discovery topics. The visible device names remain RoyalClima and Vent. After upgrading an existing device, check any connections that explicitly use its former hostname; existing HA entity IDs are not intentionally renamed.
+
 ## What you need
 
 - An **ESP32-WROOM-32** board, such as ESP32-DevKitC or DevKit V1.
@@ -144,6 +146,7 @@ Example target IDs: `sensor.vent_supply_temp`, `select.vent_supply_speed`, `swit
 | Exhaust temp | `sensor.vent_exhaust_temp` | Temperature of air discharged outside (FR). |
 | Filter interval | `sensor.vent_filter_interval` | Configured filter reminder period in days, not days remaining. |
 | Runtime | `sensor.vent_runtime` | Fan runtime in hours. |
+| Filter due | `binary_sensor.vent_filter_due` | Filter service recommended when Filter usage reaches 100%; unknown until source readings arrive. This is a runtime reminder, not a dirt sensor. |
 | Filter usage | `sensor.vent_filter_usage` | Runtime as a percentage of the configured filter interval: hours / (days × 24) × 100. Can exceed 100%; unknown until the source data is first received. |
 
 Slow registers 25, 27 and 769 are polled every 5 minutes. The last received filter interval, heater setpoint and runtime are retained across missed replies until the ESP32 restarts. They are unknown until their first successful read. Filter interval and Filter usage are recalculated when source data arrives. Main unit readings expire after 60 seconds without a reply.
@@ -174,7 +177,9 @@ Speeds are steps, not RPM or percentages. Humidity is a setpoint, not a measurem
 | API connected | `binary_sensor.royalclima_api_connected` | The ESP32 is connected to Home Assistant or another ESPHome client. |
 | Version | `sensor.royalclima_version` | Installed project firmware version. |
 | Data age | `sensor.vent_data_age` | Seconds since the last successful read of the unit's main data. |
-| Offline count | `sensor.vent_offline_count` | Number of communication failures since ESP32 startup. |
+| Offline count * | `sensor.vent_offline_count` | Transitions of either polling group to offline since ESP32 startup; not every timeout. |
+| Read requests * | `sensor.vent_read_requests` | FC03 transmissions, including retries, since ESP32 startup. Updates every 60 seconds. |
+| Read success * | `sensor.vent_read_success` | Successfully read blocks: main registers 9–20 and separate 25, 27, 769. Writes are excluded. Updates every 60 seconds. |
 
 ### Additional diagnostic sensors
 
@@ -193,7 +198,11 @@ Power raw, Supply code, Exhaust code, Status bits, External boost raw, Sensor bo
 
 Power, fan steps and setpoints use one public control entity each (`switch`, `select`, `number`). Their state follows unit reads; writes do not optimistically confirm the requested value. Setpoints and Fault bits are disabled by default in HA. Internal read/write helpers are not exported.
 
-Select **Fan speeds** = **3** or **10** in the device web interface (default: 10). The selection is saved and automatically restarts the ESP32 to update the speed lists in HA, MQTT and the web interface. Both modes include 0. It does not change the ventilation unit's motor configuration or send a speed command. Three-speed mode uses codes 2, 3 and 5 for steps 1, 2 and 3. Compatibility with AC units has not been verified on hardware; other registers and fault decoding remain based on the DC protocol.
+Select **Fan speeds** = **3** or **10** in the device web interface (default: 10). The selection is saved and automatically restarts the ESP32 after a successful settings flush to update the speed lists in HA, MQTT and the web interface. Both modes include 0. It does not change the ventilation unit's motor configuration or send a speed command. Three-speed mode uses codes 2, 3 and 5 for steps 1, 2 and 3. Compatibility with AC units has not been verified on hardware; other registers and fault decoding remain based on the DC protocol.
+
+Power, speed and target writes are rejected when the main readings are stale or have never arrived. Existing displayed states may remain cached; this does not disable the controls themselves or guarantee delivery of an already queued command. Power and speed readback tracking continues after mismatched reads until a matching value arrives or the tracking window expires; writes are not repeated by this tracking logic.
+
+An unsupported speed code is shown as **Unknown**, rather than retaining the previous speed. Unknown is a display value, and selecting it does not send a command. Choosing a motor mode does not validate other AC registers or fault codes.
 
 ### Controls and settings
 

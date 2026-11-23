@@ -25,6 +25,13 @@ globals:
     type: uint32_t
     initial_value: '0'
 
+  - id: read_request_count
+    type: uint32_t
+    initial_value: '0'
+  - id: successful_read_count
+    type: uint32_t
+    initial_value: '0'
+
   # Для трёх команд 9–11: ожидаемый код, время последней передачи и ожидание чтения.
   - id: command_expected
     type: std::array<int, 3>
@@ -47,11 +54,12 @@ globals:
 esphome:
   min_version: 2026.11.0
   name: ${name}
+  name_add_mac_suffix: true  # Уникальные hostname и MQTT Discovery для нескольких адаптеров.
   friendly_name: RoyalClima
   comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: 0.9.261122
+    version: "1.0.0"
   devices:
     - id: device_vent
       name: "Vent"
@@ -64,8 +72,8 @@ esphome:
         # Списки задаются до подключения API/MQTT: метаданные соответствуют выбранному режиму.
         - lambda: |-
             if (id(fan_speed_mode).current_option() == "3") {
-              id(supply_speed_control).traits.set_options({"0", "1", "2", "3"});
-              id(exhaust_speed_control).traits.set_options({"0", "1", "2", "3"});
+              id(supply_speed_control).traits.set_options({"0", "1", "2", "3", "Unknown"});
+              id(exhaust_speed_control).traits.set_options({"0", "1", "2", "3", "Unknown"});
             }
         - script.execute: validate_mqtt_settings
         - lambda: |-
@@ -172,6 +180,7 @@ modbus_controller:
       then:
         - lambda: |-
             if (function_code == 3) {
+              id(read_request_count) += 1;
               for (int index = 0; index < 3; index++) {
                 if (!id(command_waiting)[index]) continue;
                 ESP_LOGI("royalclima.command", "TX read FC03: device=%u register=%d (awaiting command readback)",
@@ -209,6 +218,7 @@ modbus_controller:
     on_command_sent:
       then:
         - lambda: |-
+            if (function_code == 3) id(read_request_count) += 1;
             if (function_code != 6) return;
             ESP_LOGI("royalclima.command", "TX write FC06: device=%u register=%d",
                      unsigned(${modbus_address}), address);
@@ -294,9 +304,11 @@ script:
                      raw_value == expected ? "confirmed" : "not confirmed",
                      static_cast<unsigned long>(elapsed));
           }
-          // Первый результат чтения, а не гарантия, что ПВУ уже закончила применять команду.
-          id(command_waiting)[index] = false;
-          id(command_expected)[index] = -1;
+          // Несовпавший ответ не завершает ожидание: позднее чтение ещё может подтвердить команду.
+          if (raw_value == expected) {
+            id(command_waiting)[index] = false;
+            id(command_expected)[index] = -1;
+          }
   # Неблокирующая пауза даёт ПВУ время применить команду; шина сама ждёт ответа/таймаута записи.
   - id: refresh_main_after_write
     mode: restart
@@ -362,6 +374,7 @@ sensor:
         # Состояние питания публикуется сразу по чтению, без дополнительного таймера.
         - lambda: |-
             if (isnan(x)) return;
+            id(successful_read_count) += 1;
             id(ventilation_control).publish_state(x != 0);
             id(log_command_readback).execute(9, static_cast<int>(x));
         - script.execute: refresh_ventilation_status
@@ -538,8 +551,31 @@ sensor:
       return (uint32_t(millis()) - id(last_reply_ms)) / 1000.0f;
 
   - platform: template
+    # Переданные FC03, включая повторы; счётчик с момента запуска ESP32.
+    name: "Read requests"
+    device_id: device_vent
+    disabled_by_default: true
+    entity_category: diagnostic
+    icon: mdi:counter
+    accuracy_decimals: 0
+    state_class: total_increasing
+    update_interval: 60s
+    lambda: return id(read_request_count);
+  - platform: template
+    # Успешные блоки FC03: основной 9-20 и отдельные 25, 27, 769; записи не считаются.
+    name: "Read success"
+    device_id: device_vent
+    disabled_by_default: true
+    entity_category: diagnostic
+    icon: mdi:check-network-outline
+    accuracy_decimals: 0
+    state_class: total_increasing
+    update_interval: 60s
+    lambda: return id(successful_read_count);
+  - platform: template
     # Число переходов обеих групп опроса в offline с последней перезагрузки ESP32.
     name: "Offline count"
+    disabled_by_default: true
     icon: mdi:counter
     device_id: device_vent
     accuracy_decimals: 0
@@ -611,6 +647,7 @@ sensor:
     # Последнее успешное значение хранится в RAM до следующего чтения или перезагрузки.
     on_value:
       then:
+        - lambda: if (!isnan(x)) id(successful_read_count) += 1;
         - component.update: filter_reminder_interval
         - component.update: filter_usage
 
@@ -630,6 +667,7 @@ sensor:
     # Публичная уставка обновляется только по ответу ПВУ, включая потерю актуальности.
     on_value:
       then:
+        - lambda: if (!isnan(x)) id(successful_read_count) += 1;
         - component.update: heater_target_control
 
   - platform: template
@@ -665,6 +703,7 @@ sensor:
     # Последнее успешное значение хранится в RAM до следующего чтения или перезагрузки.
     on_value:
       then:
+        - lambda: if (!isnan(x)) id(successful_read_count) += 1;
         - component.update: filter_usage
 
   - platform: template
@@ -730,6 +769,10 @@ number:
     step: 1
     use_write_multiple: false
     write_lambda: |-
+      if (!id(has_reply) || isnan(id(power_raw).state)) {
+        ESP_LOGW("royalclima.command", "REJECTED: no current Modbus data");
+        return {};
+      }
       ESP_LOGI("royalclima.command", "REQUEST: Set humidity setpoint to %.0f (FC06 register=19)", x);
       return x;
 
@@ -764,10 +807,28 @@ number:
     step: 1
     use_write_multiple: false
     write_lambda: |-
+      if (!id(has_reply) || isnan(id(power_raw).state)) {
+        ESP_LOGW("royalclima.command", "REJECTED: no current Modbus data");
+        return {};
+      }
       ESP_LOGI("royalclima.command", "REQUEST: Set heater temperature setpoint to %.0f (FC06 register=27)", x);
       return x;
 
 binary_sensor:
+  - platform: template
+    id: filter_due
+    # Рекомендация обслуживания: наработка достигла настроенного интервала; не датчик загрязнения.
+    name: "Filter due"
+    device_id: device_vent
+    device_class: problem
+    icon: mdi:air-filter
+    lambda: |-
+      const float usage = id(filter_usage).state;
+      if (!std::isfinite(usage)) {
+        id(filter_due).invalidate_state();
+        return {};
+      }
+      return usage >= 100.0f;
   - platform: status
     # Состояние подключения ESP32 к клиенту native API, например Home Assistant.
     name: "API connected"
@@ -1059,6 +1120,10 @@ switch:
     use_write_multiple: false
     restore_mode: DISABLED
     write_lambda: |-
+      if (!id(has_reply) || isnan(id(power_raw).state)) {
+        ESP_LOGW("royalclima.command", "REJECTED: no current Modbus data");
+        return {};
+      }
       ESP_LOGI("royalclima.command", "REQUEST: Turn power %s (FC06 register=9 value=%u)", x ? "ON" : "OFF", unsigned(x));
       id(command_expected)[0] = x ? 1 : 0;
       id(command_waiting)[0] = false;
@@ -1087,7 +1152,10 @@ select:
             - lambda: id(fan_speed_mode).publish_state(x);
             - delay: 2s
             - lambda: |-
-                global_preferences->sync();
+                if (!global_preferences->sync()) {
+                  ESP_LOGE("royalclima.config", "Could not save fan mode; restart cancelled");
+                  return;
+                }
                 App.safe_reboot();
   - platform: template
     id: message_language
@@ -1109,16 +1177,26 @@ select:
     device_id: device_vent
     icon: mdi:fan-chevron-down
     address: 10
-    # Не искать индекс за пределами укороченного списка при неверном режиме или внешнем изменении скорости.
+    # Неизвестный код публикуется явно, а не оставляет старую скорость.
     lambda: |-
-      if (id(fan_speed_mode).current_option() == "3" && x > 5)
-        return std::string("unsupported");
-      return {};
+      const int codes[] = {0, 2, 3, 5, 8, 9, 10, 11, 12, 13, 14};
+      const int limit = id(fan_speed_mode).current_option() == "3" ? 3 : 10;
+      for (int step = 0; step <= limit; step++)
+        if (x == codes[step]) return std::to_string(step);
+      return std::string("Unknown");
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
     # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
     write_lambda: |-
+      if (!id(has_reply) || isnan(id(power_raw).state)) {
+        ESP_LOGW("royalclima.command", "REJECTED: no current Modbus data");
+        return {};
+      }
+      if (x == "Unknown" || (id(fan_speed_mode).current_option() == "3" && value > 5)) {
+        ESP_LOGW("royalclima.command", "REJECTED: speed is not supported in selected mode");
+        return {};
+      }
       ESP_LOGI("royalclima.command", "REQUEST: Set supply speed to %s (FC06 register=10 value=%lld)", x.c_str(), static_cast<long long>(value));
       id(command_expected)[1] = static_cast<int>(value);
       id(command_waiting)[1] = false;
@@ -1135,6 +1213,7 @@ select:
       "8": 12
       "9": 13
       "10": 14
+      "Unknown": -1
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
     id: exhaust_speed_control
@@ -1143,16 +1222,26 @@ select:
     device_id: device_vent
     icon: mdi:fan-chevron-up
     address: 11
-    # Не искать индекс за пределами укороченного списка при неверном режиме или внешнем изменении скорости.
+    # Неизвестный код публикуется явно, а не оставляет старую скорость.
     lambda: |-
-      if (id(fan_speed_mode).current_option() == "3" && x > 5)
-        return std::string("unsupported");
-      return {};
+      const int codes[] = {0, 2, 3, 5, 8, 9, 10, 11, 12, 13, 14};
+      const int limit = id(fan_speed_mode).current_option() == "3" ? 3 : 10;
+      for (int step = 0; step <= limit; step++)
+        if (x == codes[step]) return std::to_string(step);
+      return std::string("Unknown");
     value_type: U_WORD
     use_write_multiple: false
     optimistic: false
     # Запрос пользователя до постановки записи в очередь; TX ниже означает фактическую передачу.
     write_lambda: |-
+      if (!id(has_reply) || isnan(id(power_raw).state)) {
+        ESP_LOGW("royalclima.command", "REJECTED: no current Modbus data");
+        return {};
+      }
+      if (x == "Unknown" || (id(fan_speed_mode).current_option() == "3" && value > 5)) {
+        ESP_LOGW("royalclima.command", "REJECTED: speed is not supported in selected mode");
+        return {};
+      }
       ESP_LOGI("royalclima.command", "REQUEST: Set exhaust speed to %s (FC06 register=11 value=%lld)", x.c_str(), static_cast<long long>(value));
       id(command_expected)[2] = static_cast<int>(value);
       id(command_waiting)[2] = false;
@@ -1169,6 +1258,7 @@ select:
       "8": 12
       "9": 13
       "10": 14
+      "Unknown": -1
 
 # Штатные поля веб-интерфейса ESPHome; отдельной страницы настройки нет.
 text:
