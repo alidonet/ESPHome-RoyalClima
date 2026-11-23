@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.0.1
+
+- Added a commented native web authentication configuration. Reset web auth in HA or holding BOOT for 5 seconds temporarily disables it until the next restart; the LED flashes three times. No web credential settings are exported to HA.
+- Removed the automatic MAC suffix from the network name; the default hostname is royalclima. Assign a unique name to each adapter when using multiple devices.
+
 ## v1.0.0
 
 - Added a saved 3/10 fan-speed selection in the device web interface. ESP32 restarts after a successful settings flush to apply the selected mode.

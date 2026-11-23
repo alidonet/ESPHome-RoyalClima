@@ -22,7 +22,7 @@ The series includes **RCS-250-P, RCS-350-P, RCS-500-P and RCS-650-P**. Tested on
   <img src="images/soffio.jpg" style="max-width: 100%; height: auto;" alt="Royal Clima SOFFIO Primo ventilation unit">
 </p>
 
-Each ESP32 uses a unique network name, `royalclima-<last six MAC digits>`, so multiple adapters can use the same MQTT broker without overwriting Discovery topics. The visible device names remain RoyalClima and Vent. After upgrading an existing device, check any connections that explicitly use its former hostname; existing HA entity IDs are not intentionally renamed.
+The default network name is fixed: `royalclima` (`royalclima.local` via mDNS). The visible device names are RoyalClima and Vent. For multiple adapters, set a different `name` substitution for each device to avoid hostname and MQTT Discovery collisions; different MQTT topic prefixes alone do not resolve Discovery collisions. Connections using a previous MAC-suffixed hostname need updating.
 
 ## What you need
 
@@ -117,6 +117,14 @@ RS485 defaults to **9600 baud**, configured at build time through `baud_rate` (`
 Wi-Fi credentials are stored on the ESP32. Normal OTA updates preserve them as long as the YAML does not specify an SSID and password. Erasing flash or performing a factory reset clears the settings; USB flashing that erases flash requires provisioning again. If the saved network is unavailable, the device returns to setup mode (fallback AP timeout: 30 seconds). See [ESPHome Wi-Fi credential persistence](https://esphome.io/components/wifi/#saving-wifi-credentials).
 
 Requires **ESPHome 2026.11.0 or newer**. The ventilation unit is declared as a separate Modbus device with `relation: via`.
+
+### Optional web authentication
+
+Web authentication is disabled by default. To enable it, uncomment `auth:` under `web_server` in RoyalClima.yaml, supply `web_username` and `web_password` through `!secret` in your own ESPHome configuration, and build the firmware. The example selects Digest authentication. Do not commit credentials or secrets.yaml. Authentication cannot be configured through the device web interface.
+
+Only **Reset web auth** (`button.royalclima_reset_web_auth`) is exported to HA, disabled by default. It temporarily disables HTTP authentication without restarting ESP32. Alternatively, hold **BOOT (GPIO0) for 5 seconds after startup**. The LED flashes three times. Wi-Fi, MQTT and ventilation settings are unchanged. The YAML credentials remain in the firmware and authentication returns on the next restart. Holding BOOT during power-on/reset selects the hardware bootloader; short presses during normal operation do not reset access.
+
+The reset does not bypass authentication over HTTP: when locked out, use the independent HA API/MQTT connection or the physical button. HTTP authentication does not secure API or OTA and does not encrypt page traffic. Use a trusted local network.
 
 ## Features
 

@@ -4,6 +4,7 @@
 
 substitutions:
   name: royalclima
+  project_version: "1.0.1"
   tx_pin: GPIO17
   rx_pin: GPIO16
   en_pin: GPIO18
@@ -54,12 +55,11 @@ globals:
 esphome:
   min_version: 2026.11.0
   name: ${name}
-  name_add_mac_suffix: true  # Уникальные hostname и MQTT Discovery для нескольких адаптеров.
   friendly_name: RoyalClima
-  comment: "Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
+  comment: "Firmware ${project_version} · Modbus monitoring and control for Royal Clima Energy Recovery Ventilator"
   project:
     name: alidonet.royalclima
-    version: "1.0.0"
+    version: ${project_version}
   devices:
     - id: device_vent
       name: "Vent"
@@ -141,7 +141,16 @@ logger:
     modbus_controller: ERROR
     royalclima.command: INFO
 
+web_server_base:
+  id: royalclima_web_base
+
 web_server:
+  # Опциональная HTTP-авторизация: раскомментировать и задать !secret в своей конфигурации.
+  # Не сохранять реальные реквизиты в репозитории. Reset web auth/BOOT отключает защиту до перезагрузки.
+  # auth:
+  #   username: !secret web_username
+  #   password: !secret web_password
+  #   type: digest
   local: true
   port: 80
   version: 3
@@ -230,6 +239,34 @@ modbus_controller:
         - script.execute: report_modbus_failure
 
 script:
+  - id: hold_web_auth_reset
+    mode: restart
+    then:
+      - delay: 5s
+      - if:
+          condition:
+            binary_sensor.is_on: boot_button
+          then:
+            - script.execute: reset_web_auth
+  - id: reset_web_auth
+    mode: single
+    then:
+      - lambda: |-
+          // Пароль из YAML не стирается: снимаем HTTP-защиту только до следующей перезагрузки.
+          #ifdef USE_WEBSERVER_AUTH
+          id(royalclima_web_base).set_auth_username(nullptr);
+          id(royalclima_web_base).set_auth_password(nullptr);
+          ESP_LOGW("royalclima.web", "Web authentication disabled until next restart");
+          #endif
+      - output.turn_off: led_output
+      - delay: 150ms
+      - repeat:
+          count: 3
+          then:
+            - output.turn_on: led_output
+            - delay: 150ms
+            - output.turn_off: led_output
+            - delay: 150ms
   - id: validate_mqtt_settings
     then:
       - lambda: |-
@@ -385,9 +422,14 @@ sensor:
               - lambda: |-
                   id(last_reply_ms) = millis();
                   id(has_reply) = true;
-              - output.turn_on: led_output
-              - delay: 150ms
-              - output.turn_off: led_output
+              - if:
+                  condition:
+                    not:
+                      script.is_running: reset_web_auth
+                  then:
+                    - output.turn_on: led_output
+                    - delay: 150ms
+                    - output.turn_off: led_output
 
   - platform: modbus_controller
     modbus_controller_id: royalclima_controller
@@ -815,6 +857,22 @@ number:
       return x;
 
 binary_sensor:
+  - platform: gpio
+    id: boot_button
+    # BOOT/GPIO0 держать 5 с только после загрузки; при включении это вход загрузчика ESP32.
+    internal: true
+    pin:
+      number: GPIO0
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    filters:
+      - delayed_on: 50ms
+    on_press:
+      - script.execute: hold_web_auth_reset
+    on_release:
+      - script.stop: hold_web_auth_reset
   - platform: template
     id: filter_due
     # Рекомендация обслуживания: наработка достигла настроенного интервала; не датчик загрязнения.
@@ -1063,6 +1121,14 @@ text_sensor:
       result += (english ? " (code " : " (код ") + std::to_string(code) + ")";
       return result;
 button:
+  - platform: template
+    # Восстановление через API/MQTT: временно отключить HTTP-auth до перезагрузки, мигнуть LED.
+    name: "Reset web auth"
+    disabled_by_default: true
+    icon: mdi:lock-reset
+    entity_category: config
+    on_press:
+      - script.execute: reset_web_auth
   - platform: template
     # Проверить настройки MQTT, сбросить очередь flash-записей и перезагрузить только ESP32.
     name: "MQTT apply"
